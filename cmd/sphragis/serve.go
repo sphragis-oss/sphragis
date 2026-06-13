@@ -54,7 +54,7 @@ func serve(logger *slog.Logger) error {
 	defer log.Close()
 
 	mux := http.NewServeMux()
-	mux.Handle("/v1/", proxy.New(cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger))
+	mux.Handle("/v1/", proxy.New(cfg.AnthropicBaseURL, cfg.OpenAIBaseURL, cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: mux}
 
@@ -71,7 +71,7 @@ func serve(logger *slog.Logger) error {
 		_ = srv.Shutdown(ctx)
 	}()
 
-	logger.Info("sphragis listening", "addr", cfg.ListenAddr, "upstream", cfg.UpstreamBaseURL, "audit_log", cfg.AuditLogPath)
+	logger.Info("sphragis listening", "addr", cfg.ListenAddr, "anthropic", cfg.AnthropicBaseURL, "openai", cfg.OpenAIBaseURL, "audit_log", cfg.AuditLogPath)
 	err = srv.ListenAndServe()
 	if pid, ok := control.ReadPID(); ok && pid == os.Getpid() {
 		control.RemovePID()

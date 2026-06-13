@@ -9,24 +9,28 @@ import (
 )
 
 type Config struct {
-	ListenAddr      string
-	UpstreamBaseURL string
-	UpstreamAPIKey  string
-	AuditLogPath    string
-	CustomTermsFile string
-	NERURL          string
-	OTSCalendars    []string
+	ListenAddr       string
+	AnthropicBaseURL string
+	OpenAIBaseURL    string
+	UpstreamBaseURL  string
+	UpstreamAPIKey   string
+	AuditLogPath     string
+	CustomTermsFile  string
+	NERURL           string
+	OTSCalendars     []string
 }
 
 func FromEnv() Config {
 	return Config{
-		ListenAddr:      env("SPHRAGIS_LISTEN_ADDR", ":8787"),
-		UpstreamBaseURL: env("SPHRAGIS_UPSTREAM_BASE_URL", "https://api.openai.com"),
-		UpstreamAPIKey:  os.Getenv("SPHRAGIS_UPSTREAM_API_KEY"),
-		AuditLogPath:    env("SPHRAGIS_AUDIT_LOG_PATH", filepath.Join(Home(), "audit.jsonl")),
-		CustomTermsFile: os.Getenv("SPHRAGIS_CUSTOM_TERMS_FILE"),
-		NERURL:          os.Getenv("SPHRAGIS_NER_URL"),
-		OTSCalendars:    splitCSV(os.Getenv("SPHRAGIS_OTS_CALENDARS")),
+		ListenAddr:       env("SPHRAGIS_LISTEN_ADDR", ":8787"),
+		AnthropicBaseURL: env("SPHRAGIS_ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
+		OpenAIBaseURL:    env("SPHRAGIS_OPENAI_BASE_URL", "https://api.openai.com"),
+		UpstreamBaseURL:  os.Getenv("SPHRAGIS_UPSTREAM_BASE_URL"),
+		UpstreamAPIKey:   os.Getenv("SPHRAGIS_UPSTREAM_API_KEY"),
+		AuditLogPath:     env("SPHRAGIS_AUDIT_LOG_PATH", filepath.Join(Home(), "audit.jsonl")),
+		CustomTermsFile:  os.Getenv("SPHRAGIS_CUSTOM_TERMS_FILE"),
+		NERURL:           os.Getenv("SPHRAGIS_NER_URL"),
+		OTSCalendars:     splitCSV(os.Getenv("SPHRAGIS_OTS_CALENDARS")),
 	}
 }
 

@@ -44,7 +44,12 @@ func runStatus() error {
 		warns = append(warns, "gateway is not running")
 	}
 	rows = append(rows, row("Listen", cfg.ListenAddr))
-	rows = append(rows, row("Upstream", cfg.UpstreamBaseURL))
+	if cfg.UpstreamBaseURL != "" {
+		rows = append(rows, row("Upstream", cfg.UpstreamBaseURL+paint(cDim, "  (override, all routes)")))
+	} else {
+		rows = append(rows, row("Claude Code", cfg.AnthropicBaseURL+paint(cDim, "  (/v1/messages)")))
+		rows = append(rows, row("Codex/OpenAI", cfg.OpenAIBaseURL+paint(cDim, "  (/v1/chat, /v1/responses)")))
+	}
 
 	sum, err := audit.Summarize(cfg.AuditLogPath)
 	switch {

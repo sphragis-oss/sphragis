@@ -17,20 +17,54 @@ import (
 )
 
 type Handler struct {
-	Upstream string
-	APIKey   string
-	Log      *audit.Log
-	Logger   *slog.Logger
-	Client   *http.Client
+	Anthropic string
+	OpenAI    string
+	Override  string
+	APIKey    string
+	Log       *audit.Log
+	Logger    *slog.Logger
+	Client    *http.Client
 }
 
-func New(upstream, apiKey string, log *audit.Log, logger *slog.Logger) *Handler {
+func New(anthropic, openai, override, apiKey string, log *audit.Log, logger *slog.Logger) *Handler {
 	return &Handler{
-		Upstream: strings.TrimRight(upstream, "/"),
-		APIKey:   apiKey,
-		Log:      log,
-		Logger:   logger,
-		Client:   &http.Client{},
+		Anthropic: strings.TrimRight(anthropic, "/"),
+		OpenAI:    strings.TrimRight(openai, "/"),
+		Override:  strings.TrimRight(override, "/"),
+		APIKey:    apiKey,
+		Log:       log,
+		Logger:    logger,
+		Client:    &http.Client{},
+	}
+}
+
+// upstreamFor routes by request path: Anthropic (Claude Code) vs OpenAI (Codex).
+func (h *Handler) upstreamFor(path string) string {
+	if h.Override != "" {
+		return h.Override
+	}
+	if strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete") {
+		return h.Anthropic
+	}
+	return h.OpenAI
+}
+
+var hopHeaders = map[string]bool{
+	"Connection": true, "Proxy-Connection": true, "Keep-Alive": true,
+	"Proxy-Authenticate": true, "Proxy-Authorization": true, "Te": true,
+	"Trailer": true, "Transfer-Encoding": true, "Upgrade": true,
+	"Host": true, "Content-Length": true,
+}
+
+// copyHeaders forwards client headers (provider auth: x-api-key, anthropic-version, Authorization).
+func copyHeaders(dst, src http.Header) {
+	for k, vs := range src {
+		if hopHeaders[http.CanonicalHeaderKey(k)] {
+			continue
+		}
+		for _, v := range vs {
+			dst.Add(k, v)
+		}
 	}
 }
 
@@ -71,16 +105,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, h.Upstream+r.URL.Path, bytes.NewReader(redacted))
+	upstream := h.upstreamFor(r.URL.Path)
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstream+r.URL.Path, bytes.NewReader(redacted))
 	if err != nil {
 		http.Error(w, "upstream request error", http.StatusInternalServerError)
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
+	copyHeaders(req.Header, r.Header)
+	if req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if h.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+h.APIKey)
-	} else if a := r.Header.Get("Authorization"); a != "" {
-		req.Header.Set("Authorization", a)
 	}
 
 	resp, err := h.Client.Do(req)

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Multi-provider auto-routing: a single gateway routes by request path, sending
+  Anthropic paths (`/v1/messages`, `/v1/complete`) to
+  `SPHRAGIS_ANTHROPIC_BASE_URL` (default `https://api.anthropic.com`) and OpenAI
+  paths to `SPHRAGIS_OPENAI_BASE_URL` (default `https://api.openai.com`). One
+  `sphragis` instance now protects Claude Code and Codex at the same time into a
+  single audit log. `SPHRAGIS_UPSTREAM_BASE_URL` still overrides all routes.
+
+### Fixed
+
+- Forward all client request headers upstream so provider auth works for both
+  protocols. Previously only `Authorization` was passed through, which broke
+  Anthropic's `x-api-key` / `anthropic-version` auth used by Claude Code.
+
 ## [0.2.0] - 2026-06-13
 
 ### Added
