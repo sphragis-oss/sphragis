@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+tone_instructions: "Be concise and direct. Lead with the issue, then the fix."
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_instructions:
+    - path: "**/*.go"
+      instructions: >-
+        Follow Effective Go. Errors handled explicitly, structured logging via
+        log/slog. Comments are a single line. Every source file keeps its
+        `// SPDX-License-Identifier: Apache-2.0` header. For redaction code,
+        flag any path where personal data could reach the upstream unredacted,
+        or where the audit log could fail to record a forwarded call.
+    - path: ".github/workflows/**"
+      instructions: >-
+        All actions must be pinned to a full commit SHA, never a tag or branch.
+        Workflows should set least-privilege permissions and keep harden-runner.
+  auto_title_instructions: "Use a short imperative summary, no trailing period."
+chat:
+  auto_reply: true
