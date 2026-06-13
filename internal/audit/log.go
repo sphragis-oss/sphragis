@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -45,10 +46,30 @@ type Log struct {
 }
 
 func chainHash(r Record) string {
-	in := fmt.Sprintf("%d\n%s\n%s\n%s\n%s\n%s\n%s",
-		r.Seq, r.Time, r.Method, r.Path, r.Model, r.PayloadHash, r.PrevHash)
+	in := fmt.Sprintf("%d\n%s\n%s\n%s\n%s\n%s\n%s\n%s",
+		r.Seq, r.Time, r.Method, r.Path, r.Model, r.PayloadHash, piiDigest(r.PIIRedacted), r.PrevHash)
 	sum := sha256.Sum256([]byte(in))
 	return hex.EncodeToString(sum[:])
+}
+
+// piiDigest serializes redaction counts deterministically so they are chained.
+func piiDigest(m map[string]int) string {
+	if len(m) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for i, k := range keys {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%s=%d", k, m[k])
+	}
+	return b.String()
 }
 
 // Open opens or creates an append-only audit log, recovering chain state.

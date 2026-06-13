@@ -8,8 +8,6 @@ omitted while the project is early; items are grouped by horizon.
 
 - Harden the core proxy and redaction paths.
 - Expand detector coverage and test fixtures across the supported wire formats.
-- Automatic periodic anchoring on a schedule (today `sphragis anchor` runs on
-  demand).
 - Container image and a basic Kubernetes deployment manifest.
 
 ## Next
@@ -33,7 +31,8 @@ omitted while the project is early; items are grouped by horizon.
 - Custom exact-match term list for names and codenames.
 - External NER integration for name, address, and health entities.
 - `sphragis anchor`: Merkle-root anchoring to public OpenTimestamps calendars
-  with a `.ots` proof.
+  with a `.ots` proof, including an on/off toggle for automatic periodic
+  anchoring on a schedule.
 
 ## Out of scope for the open project
 

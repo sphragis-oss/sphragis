@@ -79,3 +79,23 @@ func TestVerifyDetectsTamper(t *testing.T) {
 		t.Fatal("expected verify to detect tampering, got nil error")
 	}
 }
+
+func TestVerifyDetectsPIICountTamper(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "a.jsonl")
+	l, _ := Open(p)
+	if _, err := l.Append(Entry{Method: "POST", Path: "/v1/messages", Model: "claude", PIIRedacted: map[string]int{"EMAIL": 1}, PayloadHash: strings.Repeat("a", 64)}); err != nil {
+		t.Fatal(err)
+	}
+	l.Close()
+
+	raw, _ := os.ReadFile(p)
+	tampered := strings.Replace(string(raw), `"EMAIL":1`, `"EMAIL":0`, 1)
+	if tampered == string(raw) {
+		t.Fatal("test setup: nothing replaced")
+	}
+	os.WriteFile(p, []byte(tampered), 0o600)
+
+	if _, _, err := Verify(p); err == nil {
+		t.Fatal("expected verify to detect pii-count tampering, got nil error")
+	}
+}

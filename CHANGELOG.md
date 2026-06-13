@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-13
+
+### Added
+
+- `sphragis version` command (also `-v`/`--version`), with the version stamped
+  into release binaries at build time.
+
+### Security
+
+- Include the redaction counts (`pii_redacted`) in the audit-log hash chain, so
+  the record of what was redacted is now tamper-evident. In 0.1.0 these counts
+  sat outside the chained digest and could be altered without breaking
+  verification. This changes the chain-hash input, so audit logs written by
+  0.1.0 will not verify under 0.1.1.
+
+## [0.1.0] - 2026-06-13
+
 ### Added
 
 - OpenAI- and Anthropic-compatible proxy that redacts personal data in request
@@ -37,4 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency: `github.com/nbd-wtf/opentimestamps` for Merkle-root anchoring.
 - Apache 2.0 licensed, SPDX headers on all source files.
 
-[Unreleased]: https://github.com/sphragis-oss/sphragis/commits/main
+[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/sphragis-oss/sphragis/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/sphragis-oss/sphragis/releases/tag/v0.1.0

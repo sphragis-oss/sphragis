@@ -19,6 +19,9 @@ import (
 	"github.com/sphragis-oss/sphragis/internal/redact"
 )
 
+// version is set at build time via -ldflags -X main.version.
+var version = "dev"
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if len(os.Args) < 2 {
@@ -42,6 +45,8 @@ func main() {
 		err = doVerify()
 	case "anchor":
 		err = doAnchor()
+	case "version", "-v", "--version":
+		fmt.Printf("sphragis %s\n", version)
 	default:
 		usage()
 		os.Exit(2)
@@ -267,5 +272,6 @@ usage:
   sphragis anchor on [interval]  enable automatic anchoring (e.g. 24h)
   sphragis anchor off            disable automatic anchoring
   sphragis anchor status         show auto-anchor state
-  sphragis anchor now [log]      anchor once now`)
+  sphragis anchor now [log]      anchor once now
+  sphragis version               print the version`)
 }
