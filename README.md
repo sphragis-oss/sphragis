@@ -5,7 +5,8 @@
 **The EU AI Act compliance gateway you actually control.**
 
 A single Go binary that sits between your apps and any OpenAI- or
-Anthropic-compatible LLM. It strips personal data out of every request *before*
+Anthropic-compatible LLM, with **first-class support for Claude** (Claude Code
+and the Anthropic SDKs). It strips personal data out of every request *before*
 it leaves your network and writes a tamper-evident, hash-chained record of each
 call. Self-hosted, no SaaS in the data path. We never see your prompts.
 
@@ -49,7 +50,7 @@ trust boundary:
 flowchart LR
     subgraph trust["🔒 Your machine · trust boundary"]
         direction TB
-        A["App / SDK / agent<br/>Claude Code · Codex · OpenAI SDK"]
+        A["App / SDK / agent<br/>Claude Code · Anthropic SDK · OpenAI / Codex"]
         G{{"Sphragis gateway"}}
         R["Redact PII + secrets<br/>→ EMAIL_1, CARD_2, …"]
         L[("Audit log<br/>hash-chained .jsonl")]
@@ -152,20 +153,21 @@ with `SPHRAGIS_HOME`). Use `sphragis serve` to run in the foreground instead.
 ## Supported request formats
 
 Redaction dispatches on the request path, so one gateway covers the major agent
-and SDK clients:
+and SDK clients. **Claude is first-class:** the gateway speaks the full Anthropic
+Messages API, so Claude Code and the Anthropic SDKs run through it unchanged.
 
 | Path | Format | Used by |
 |---|---|---|
+| `/v1/messages` | Anthropic Messages API | **Claude Code**, Claude Agent SDK |
+| `/v1/messages/count_tokens` | Anthropic token counting | Claude Code, Anthropic SDKs |
+| `/v1/messages/batches` | Anthropic Message Batches | Claude batch jobs |
+| `/v1/complete` | Anthropic legacy Text Completions | legacy Claude clients |
 | `/v1/chat/completions` | OpenAI chat completions | OpenAI SDKs, Cursor, LangChain |
 | `/v1/responses` | OpenAI Responses API | Codex CLI |
-| `/v1/messages` | Anthropic Messages API | Claude Code |
-| `/v1/messages/count_tokens` | Anthropic token counting | Claude Code, SDKs |
-| `/v1/messages/batches` | Anthropic Message Batches | batch jobs |
-| `/v1/complete` | Anthropic legacy Text Completions | legacy clients |
 
 Point each client at the gateway:
 
-- Claude Code: `ANTHROPIC_BASE_URL=http://localhost:8787`
+- **Claude Code** (and the Anthropic SDKs): `ANTHROPIC_BASE_URL=http://localhost:8787`
 - Codex: `OPENAI_BASE_URL=http://localhost:8787/v1`
 - OpenAI SDKs: base URL `http://localhost:8787/v1`
 
