@@ -1,0 +1,24 @@
+[Unit]
+Description=Sphragis EU AI Act compliance gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Edit these for your deployment.
+Environment=SPHRAGIS_LISTEN_ADDR=:8787
+Environment=SPHRAGIS_UPSTREAM_BASE_URL=https://api.openai.com
+Environment=SPHRAGIS_UPSTREAM_API_KEY=
+Environment=SPHRAGIS_HOME=/var/lib/sphragis
+ExecStart=/usr/local/bin/sphragis serve
+Restart=on-failure
+RestartSec=2
+DynamicUser=yes
+StateDirectory=sphragis
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

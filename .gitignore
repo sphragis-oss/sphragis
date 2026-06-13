@@ -1,0 +1,6 @@
+/sphragis
+/dist/
+*.jsonl
+*.ots
+*.out
+.env

@@ -1,0 +1,49 @@
+version: 2
+project_name: sphragis
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: sphragis
+    main: ./cmd/sphragis
+    binary: sphragis
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+
+checksum:
+  name_template: checksums.txt
+
+brews:
+  - name: sphragis
+    repository:
+      owner: sphragis-oss
+      name: homebrew-sphragis
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://sphragis.eu
+    description: "EU AI Act compliance gateway: local PII redaction and a tamper-evident audit log"
+    license: Apache-2.0
+    install: |
+      bin.install "sphragis"
+    test: |
+      system "#{bin}/sphragis", "status"
+
+release:
+  github:
+    owner: sphragis-oss
+    name: sphragis

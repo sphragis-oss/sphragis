@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.sphragis</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/sphragis</string>
+        <string>serve</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SPHRAGIS_LISTEN_ADDR</key>
+        <string>:8787</string>
+        <key>SPHRAGIS_UPSTREAM_BASE_URL</key>
+        <string>https://api.openai.com</string>
+        <key>SPHRAGIS_UPSTREAM_API_KEY</key>
+        <string></string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/sphragis.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/sphragis.log</string>
+</dict>
+</plist>
