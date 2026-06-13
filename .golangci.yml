@@ -1,0 +1,19 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+        - (*github.com/sphragis-oss/sphragis/internal/audit.Log).Close
+        - (net/http.ResponseWriter).Write
+        - io.Copy
+        - os.Remove
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
