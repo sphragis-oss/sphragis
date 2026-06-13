@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-13
+
+### Added
+
+- Cobra-based CLI with grouped help (Gateway / Audit / Other Commands),
+  `--version`/`-v`, and generated shell completion (`completion`).
+- `sphragis status` renders a colored shield logo with the gateway state,
+  audit-chain health, redaction totals, and an Errors/Warnings summary laid out
+  beside the logo (cilium-style). Color auto-disables on non-TTY or `NO_COLOR`;
+  force it with `FORCE_COLOR`/`CLICOLOR_FORCE`.
+- `anchor` is now a parent command with `now`, `on`, `off`, and `status`
+  subcommands.
+
 ### Changed
 
 - Exclude the CodeQL `go/weak-sensitive-data-hashing` query via
@@ -65,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency: `github.com/nbd-wtf/opentimestamps` for Merkle-root anchoring.
 - Apache 2.0 licensed, SPDX headers on all source files.
 
-[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sphragis-oss/sphragis/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/sphragis-oss/sphragis/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/sphragis-oss/sphragis/releases/tag/v0.1.0

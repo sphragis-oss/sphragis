@@ -62,6 +62,9 @@ func New(customTerms []string) *Redactor {
 
 var defaultRedactor = New(nil)
 
+// BuiltinCount returns the number of built-in detectors.
+func BuiltinCount() int { return len(builtins) }
+
 // Configure swaps the default redactor at startup; not concurrency-safe.
 func Configure(customTerms []string) { defaultRedactor = New(customTerms) }
 
