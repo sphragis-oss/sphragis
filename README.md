@@ -47,13 +47,26 @@ trust boundary:
 
 ```mermaid
 flowchart LR
-    A[Your app / SDK / agent] -->|OpenAI or Anthropic request| B(Sphragis gateway)
-    B -->|1 redact PII and secrets to tokens| B
-    B -->|2 append hash-chained record| D[(audit log .jsonl)]
-    B -->|3 forward redacted body| C[LLM provider]
-    C -->|response| B --> A
-    D -.->|sphragis verify| E{chain intact?}
-    D -.->|sphragis anchor| F[(OpenTimestamps .ots proof)]
+    subgraph trust["🔒 Your machine · trust boundary"]
+        direction TB
+        A["App / SDK / agent<br/>Claude Code · Codex · OpenAI SDK"]
+        G{{"Sphragis gateway"}}
+        R["Redact PII + secrets<br/>→ EMAIL_1, CARD_2, …"]
+        L[("Audit log<br/>hash-chained .jsonl")]
+        A -->|request| G
+        G --> R
+        R -->|"append · fails closed"| L
+        G -->|response| A
+    end
+
+    R ==>|"redacted body only"| P("LLM provider<br/>OpenAI · Anthropic")
+    P ==>|response| G
+
+    L -.->|"sphragis verify"| V{"chain intact?"}
+    L -.->|"sphragis anchor<br/>opaque root only"| O[("OpenTimestamps<br/>.ots proof")]
+
+    classDef ext stroke-dasharray:5 4;
+    class P,O ext;
 ```
 
 1. The gateway parses the request body for its wire format (OpenAI or Anthropic).
