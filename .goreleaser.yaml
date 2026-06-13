@@ -29,19 +29,22 @@ archives:
 checksum:
   name_template: checksums.txt
 
-brews:
+homebrew_casks:
   - name: sphragis
+    binaries:
+      - sphragis
     repository:
       owner: sphragis-oss
       name: homebrew-sphragis
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://sphragis.eu
     description: "EU AI Act compliance gateway: local PII redaction and a tamper-evident audit log"
-    license: Apache-2.0
-    install: |
-      bin.install "sphragis"
-    test: |
-      system "#{bin}/sphragis", "status"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/sphragis"]
+          end
 
 release:
   github:
