@@ -1,0 +1,6 @@
+name: "Sphragis CodeQL config"
+
+# Excludes a weak-hash false positive: SHA-256 is used for audit hash-chaining, not passwords. See CHANGELOG.
+query-filters:
+  - exclude:
+      id: go/weak-sensitive-data-hashing

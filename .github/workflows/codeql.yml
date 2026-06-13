@@ -31,6 +31,7 @@ jobs:
       - uses: github/codeql-action/init@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
         with:
           languages: go
+          config-file: ./.github/codeql/codeql-config.yml
       - run: go build ./...
       - uses: github/codeql-action/analyze@c35d1b164463ee62a100735382aaaa525c5d3496 # codeql-bundle-v2.25.6
         with:

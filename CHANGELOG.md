@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Exclude the CodeQL `go/weak-sensitive-data-hashing` query via
+  `.github/codeql/codeql-config.yml`. It repeatedly flagged the audit log's
+  SHA-256 hash-chain (`chainHash`) and payload hash as insecure password
+  hashing. SHA-256 is the correct, intended algorithm for tamper-evident
+  chaining and Merkle roots, and the project stores no passwords or
+  credentials, so the finding is a false positive. Per-alert dismissals did not
+  hold because each change to the hashing path produced a new alert
+  fingerprint. Every other CodeQL query stays active.
+
 ## [0.1.1] - 2026-06-13
 
 ### Added
