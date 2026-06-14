@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/logo.png" alt="Sphragis logo" width="128" height="128">
+
 # Sphragis
 
 **The EU AI Act compliance gateway you actually control.**
