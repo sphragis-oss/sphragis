@@ -30,7 +30,7 @@ func rootCmd() *cobra.Command {
 	root.SetCompletionCommandGroupID(groupOther)
 	root.AddCommand(
 		startCmd(), stopCmd(), restartCmd(), serveCmd(), statusCmd(),
-		verifyCmd(), anchorCmd(),
+		verifyCmd(), anchorCmd(), revealCmd(),
 		versionCmd(),
 	)
 	return root

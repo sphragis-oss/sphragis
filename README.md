@@ -25,9 +25,10 @@ call. Self-hosted, no SaaS in the data path. We never see your prompts.
 > The name is the Greek σφραγίς (*sphragís*), the seal pressed into wax to prove a
 > document is authentic and untampered. That is exactly what the audit log does.
 
-> **Status: early.** The proxy, PII/secret redaction, the hash-chained audit log,
-> verification, and OpenTimestamps anchoring all work and are tested. Bundled ML
-> entity recognition and output redaction are on the [roadmap](ROADMAP.md).
+> **Status: early.** The proxy, PII/secret redaction of both requests and model
+> output, the hash-chained audit log, verification, and OpenTimestamps anchoring
+> all work and are tested. A bundled ML entity-recognition service is on the
+> [roadmap](ROADMAP.md).
 
 ## Why
 
@@ -147,6 +148,7 @@ sphragis restart
 sphragis stop
 
 sphragis version          # print the version
+sphragis reveal <file>    # restore originals from redacted text (needs the vault key)
 ```
 
 PID, logs, state and the default audit log live under `~/.sphragis` (override
@@ -175,9 +177,16 @@ Point each client at the gateway:
 
 Both string and structured bodies are handled, including Anthropic `document`
 blocks, `tool_use` inputs and `tool_result` content. Signed `thinking` blocks are
-left intact so signatures stay valid. Streamed (`stream: true`) responses are
-flushed through chunk by chunk. Other paths are proxied through unchanged, with no
-redaction.
+left intact so signatures stay valid. Other paths are proxied through unchanged,
+with no redaction.
+
+**Model output is redacted too.** Both JSON responses and streamed
+(`stream: true`) SSE bodies are scanned before they reach the client, so PII the
+model emits never lands in your app or logs. For streams, assistant text is
+buffered across chunks and flushed at line boundaries, so a value split across
+two SSE deltas (`jo` then `hn@x.com`) is still tokenized; tokens stay flushed
+live per line. Streamed bodies are redacted with the regex/custom detectors only
+(NER runs on non-streamed bodies).
 
 ## What gets redacted
 
@@ -238,13 +247,57 @@ Override the calendars with `SPHRAGIS_OTS_CALENDARS` (comma-separated).
 | `SPHRAGIS_CUSTOM_TERMS_FILE` | (none) | File of extra terms to redact, one per line (names, codenames) |
 | `SPHRAGIS_NER_URL` | (none) | External NER service for names/addresses/health terms |
 | `SPHRAGIS_OTS_CALENDARS` | public OTS calendars | Comma-separated OpenTimestamps calendar URLs |
+| `SPHRAGIS_CONFIG` | `~/.sphragis/sphragis.yaml` | Optional config file; env vars override its values |
+| `SPHRAGIS_VAULT_KEY` | (none) | Base64 32-byte key; enables reversible tokenization |
+| `SPHRAGIS_VAULT_KEYFILE` | (none) | File holding the vault key (raw or base64), instead of `SPHRAGIS_VAULT_KEY` |
+| `SPHRAGIS_VAULT_PATH` | `~/.sphragis/vault.bin` | Sealed token->original map |
+
+### Config file
+
+Anything in the table above (except the secret `SPHRAGIS_VAULT_KEY`) can live in a
+config file instead. Sphragis reads `~/.sphragis/sphragis.yaml` if present, or the
+path in `SPHRAGIS_CONFIG`. Environment variables override file values, which
+override defaults.
+
+```yaml
+listen_addr: ":8787"
+anthropic_base_url: "https://api.anthropic.com"
+openai_base_url: "https://api.openai.com"
+audit_log_path: "~/.sphragis/audit.jsonl"
+ner_url: ""
+vault_keyfile: ""
+ots_calendars:
+  - "https://alice.btc.calendar.opentimestamps.org"
+  - "https://bob.btc.calendar.opentimestamps.org"
+```
+
+## Reversible tokenization (optional)
+
+By default tokens are one-way: there is no record of the original values. Set a
+32-byte key (`SPHRAGIS_VAULT_KEY` as base64, or `SPHRAGIS_VAULT_KEYFILE`) to
+enable a **sealed, local** vault that records each token's original value,
+encrypted at rest with AES-256-GCM. Tokens then become gateway-global and unique
+(`[EMAIL_1]` always means the same address). Restore them inside your boundary:
+
+```bash
+sphragis reveal redacted-transcript.txt   # writes the rehydrated text to stdout
+cat redacted.txt | sphragis reveal        # also reads stdin
+```
+
+The vault never leaves the machine and is unreadable without the key. Without a
+key set, no originals are ever stored.
+
+## Metrics
+
+`sphragis serve` exposes Prometheus metrics at `/metrics` (redaction counts by
+kind and direction, requests by route, upstream latency, audit-append failures).
+It is plain-text exposition with no external dependency.
 
 ## Project status
 
-Sphragis is open source under Apache 2.0 and built in the open. The goal is to
-grow it into a community-governed, vendor-neutral project and submit it to the
-[CNCF](https://www.cncf.io/) Sandbox. See the [roadmap](ROADMAP.md) for what's
-next; contributions, issues and design feedback are all welcome.
+Sphragis is open source under Apache 2.0 and built in the open. See the
+[roadmap](ROADMAP.md) for what's next; contributions, issues and design feedback
+are all welcome.
 
 ## Commercial offering
 

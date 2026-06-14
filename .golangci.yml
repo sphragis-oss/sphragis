@@ -10,6 +10,9 @@ linters:
         - (*github.com/sphragis-oss/sphragis/internal/audit.Log).Close
         - (net/http.ResponseWriter).Write
         - io.Copy
+        - io.WriteString
+        - fmt.Fprint
+        - fmt.Fprintf
         - os.Remove
 
   exclusions:

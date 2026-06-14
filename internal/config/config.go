@@ -3,6 +3,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,20 +19,151 @@ type Config struct {
 	CustomTermsFile  string
 	NERURL           string
 	OTSCalendars     []string
+	VaultKeyfile     string
+	VaultPath        string
 }
 
-func FromEnv() Config {
+// defaults returns the baseline config before file and env layering.
+func defaults() Config {
 	return Config{
-		ListenAddr:       env("SPHRAGIS_LISTEN_ADDR", ":8787"),
-		AnthropicBaseURL: env("SPHRAGIS_ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
-		OpenAIBaseURL:    env("SPHRAGIS_OPENAI_BASE_URL", "https://api.openai.com"),
-		UpstreamBaseURL:  os.Getenv("SPHRAGIS_UPSTREAM_BASE_URL"),
-		UpstreamAPIKey:   os.Getenv("SPHRAGIS_UPSTREAM_API_KEY"),
-		AuditLogPath:     env("SPHRAGIS_AUDIT_LOG_PATH", filepath.Join(Home(), "audit.jsonl")),
-		CustomTermsFile:  os.Getenv("SPHRAGIS_CUSTOM_TERMS_FILE"),
-		NERURL:           os.Getenv("SPHRAGIS_NER_URL"),
-		OTSCalendars:     splitCSV(os.Getenv("SPHRAGIS_OTS_CALENDARS")),
+		ListenAddr:       ":8787",
+		AnthropicBaseURL: "https://api.anthropic.com",
+		OpenAIBaseURL:    "https://api.openai.com",
+		AuditLogPath:     filepath.Join(Home(), "audit.jsonl"),
+		VaultPath:        filepath.Join(Home(), "vault.bin"),
 	}
+}
+
+// Load resolves config from defaults, then an optional YAML file, then env vars.
+// Precedence is env > file > default, so existing env-only setups are unchanged.
+func Load() (Config, error) {
+	c := defaults()
+	if p := configPath(); p != "" {
+		if err := applyFile(&c, p); err != nil {
+			return c, fmt.Errorf("config %s: %w", p, err)
+		}
+	}
+	applyEnv(&c)
+	return c, nil
+}
+
+// FromEnv keeps the env-only path (defaults + env), used where no file is wanted.
+func FromEnv() Config {
+	c := defaults()
+	applyEnv(&c)
+	return c
+}
+
+// configPath returns SPHRAGIS_CONFIG, else $SPHRAGIS_HOME/sphragis.yaml if it exists.
+func configPath() string {
+	if p := os.Getenv("SPHRAGIS_CONFIG"); p != "" {
+		return p
+	}
+	def := filepath.Join(Home(), "sphragis.yaml")
+	if _, err := os.Stat(def); err == nil {
+		return def
+	}
+	return ""
+}
+
+func applyEnv(c *Config) {
+	setEnv(&c.ListenAddr, "SPHRAGIS_LISTEN_ADDR")
+	setEnv(&c.AnthropicBaseURL, "SPHRAGIS_ANTHROPIC_BASE_URL")
+	setEnv(&c.OpenAIBaseURL, "SPHRAGIS_OPENAI_BASE_URL")
+	setEnv(&c.UpstreamBaseURL, "SPHRAGIS_UPSTREAM_BASE_URL")
+	setEnv(&c.UpstreamAPIKey, "SPHRAGIS_UPSTREAM_API_KEY")
+	setEnv(&c.AuditLogPath, "SPHRAGIS_AUDIT_LOG_PATH")
+	setEnv(&c.CustomTermsFile, "SPHRAGIS_CUSTOM_TERMS_FILE")
+	setEnv(&c.NERURL, "SPHRAGIS_NER_URL")
+	setEnv(&c.VaultKeyfile, "SPHRAGIS_VAULT_KEYFILE")
+	setEnv(&c.VaultPath, "SPHRAGIS_VAULT_PATH")
+	if v := os.Getenv("SPHRAGIS_OTS_CALENDARS"); v != "" {
+		c.OTSCalendars = splitCSV(v)
+	}
+}
+
+func setEnv(dst *string, key string) {
+	if v := os.Getenv(key); v != "" {
+		*dst = v
+	}
+}
+
+// applyFile overlays a flat-YAML config file onto c, ignoring a missing file.
+func applyFile(c *Config, path string) error {
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	scalars, lists, err := parseFlatYAML(b)
+	if err != nil {
+		return err
+	}
+	str := map[string]*string{
+		"listen_addr":        &c.ListenAddr,
+		"anthropic_base_url": &c.AnthropicBaseURL,
+		"openai_base_url":    &c.OpenAIBaseURL,
+		"upstream_base_url":  &c.UpstreamBaseURL,
+		"upstream_api_key":   &c.UpstreamAPIKey,
+		"audit_log_path":     &c.AuditLogPath,
+		"custom_terms_file":  &c.CustomTermsFile,
+		"ner_url":            &c.NERURL,
+		"vault_keyfile":      &c.VaultKeyfile,
+		"vault_path":         &c.VaultPath,
+	}
+	for k, v := range scalars {
+		if dst, ok := str[k]; ok {
+			*dst = v
+		} else if k != "ots_calendars" {
+			return fmt.Errorf("unknown key %q", k)
+		}
+	}
+	if v, ok := lists["ots_calendars"]; ok {
+		c.OTSCalendars = v
+	}
+	return nil
+}
+
+// parseFlatYAML parses a flat "key: value" subset with one level of "- item" lists.
+func parseFlatYAML(b []byte) (map[string]string, map[string][]string, error) {
+	scalars := map[string]string{}
+	lists := map[string][]string{}
+	var listKey string
+	for n, raw := range strings.Split(string(b), "\n") {
+		line := strings.TrimRight(raw, "\r")
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		if item, ok := strings.CutPrefix(strings.TrimSpace(line), "- "); ok {
+			if listKey == "" {
+				return nil, nil, fmt.Errorf("line %d: list item without a key", n+1)
+			}
+			lists[listKey] = append(lists[listKey], unquote(item))
+			continue
+		}
+		key, val, ok := strings.Cut(line, ":")
+		if !ok {
+			return nil, nil, fmt.Errorf("line %d: not key: value", n+1)
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		if val == "" {
+			listKey = key
+			continue
+		}
+		listKey = ""
+		scalars[key] = unquote(val)
+	}
+	return scalars, lists, nil
+}
+
+func unquote(s string) string {
+	if len(s) >= 2 && (s[0] == '"' || s[0] == '\'') && s[len(s)-1] == s[0] {
+		return s[1 : len(s)-1]
+	}
+	return s
 }
 
 // splitCSV splits a comma-separated env value, trimming blanks.
@@ -61,13 +193,6 @@ func LoadCustomTerms(path string) ([]string, error) {
 		}
 	}
 	return out, nil
-}
-
-func env(k, d string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return d
 }
 
 // Home returns the sphragis state directory (SPHRAGIS_HOME or ~/.sphragis).

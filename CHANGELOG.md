@@ -7,14 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-14
+
 ### Added
 
+- Reversible tokenization (opt-in). With a 32-byte key (`SPHRAGIS_VAULT_KEY` or
+  `SPHRAGIS_VAULT_KEYFILE`) the gateway records each token's original value in a
+  local vault sealed with AES-256-GCM, and tokens become gateway-global and
+  unique. `sphragis reveal <file>` restores originals inside the trust boundary.
+  Without a key, nothing changes and no originals are stored.
+- Prometheus metrics at `/metrics` (redaction counts by kind and direction,
+  requests by route, upstream latency, audit-append failures), as zero-dependency
+  text exposition.
+- Optional YAML config file (`~/.sphragis/sphragis.yaml` or `SPHRAGIS_CONFIG`).
+  Precedence is env > file > default, so env-only setups are unchanged.
+- Response (model output) redaction. JSON responses and streamed SSE bodies are
+  now scanned before reaching the client, so PII the model emits does not land in
+  the calling app or its logs. Covers OpenAI chat completions, OpenAI Responses,
+  Anthropic Messages, and legacy Text Completions. For streams, assistant text is
+  buffered across chunks and flushed at line boundaries with stable token
+  numbering, so a value split across two SSE deltas is still tokenized. Streamed
+  bodies use the regex/custom detectors only (NER runs on non-streamed bodies).
 - Multi-provider auto-routing: a single gateway routes by request path, sending
   Anthropic paths (`/v1/messages`, `/v1/complete`) to
   `SPHRAGIS_ANTHROPIC_BASE_URL` (default `https://api.anthropic.com`) and OpenAI
   paths to `SPHRAGIS_OPENAI_BASE_URL` (default `https://api.openai.com`). One
   `sphragis` instance now protects Claude Code and Codex at the same time into a
   single audit log. `SPHRAGIS_UPSTREAM_BASE_URL` still overrides all routes.
+
+### Changed
+
+- `sphragis status` logo redrawn to match the new project seal: a dashed cream
+  ring around redaction bars with the middle bar in red, replacing the gold
+  shield.
 
 ### Fixed
 
@@ -93,7 +118,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency: `github.com/nbd-wtf/opentimestamps` for Merkle-root anchoring.
 - Apache 2.0 licensed, SPDX headers on all source files.
 
-[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sphragis-oss/sphragis/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sphragis-oss/sphragis/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/sphragis-oss/sphragis/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/sphragis-oss/sphragis/releases/tag/v0.1.0

@@ -30,7 +30,10 @@ func anchorNowCmd() *cobra.Command {
 		Short: "Anchor the Merkle root once, now",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			cfg := config.FromEnv()
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
 			logPath := cfg.AuditLogPath
 			if len(args) == 1 {
 				logPath = args[0]

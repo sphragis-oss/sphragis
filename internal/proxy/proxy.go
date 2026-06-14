@@ -10,9 +10,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sphragis-oss/sphragis/internal/audit"
+	"github.com/sphragis-oss/sphragis/internal/metrics"
 	"github.com/sphragis-oss/sphragis/internal/redact"
 )
 
@@ -83,14 +86,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		redacted = body
 		counts = map[redact.Kind]int{}
 	}
+	cc := make(map[string]int, len(counts))
+	for k, v := range counts {
+		cc[string(k)] = v
+	}
+	metrics.ObserveRedactions("request", cc)
 	sum := sha256.Sum256(redacted)
 	payloadHash := hex.EncodeToString(sum[:])
 
 	if h.Log != nil {
-		cc := make(map[string]int, len(counts))
-		for k, v := range counts {
-			cc[string(k)] = v
-		}
 		if _, err := h.Log.Append(audit.Entry{
 			Method:      r.Method,
 			Path:        r.URL.Path,
@@ -99,6 +103,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			PayloadHash: payloadHash,
 		}); err != nil {
 			// Fail closed: never forward a call we could not record.
+			metrics.AuditAppendFailed()
 			h.Logger.Error("audit append failed", "err", err)
 			http.Error(w, "audit log error", http.StatusInternalServerError)
 			return
@@ -106,12 +111,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	upstream := h.upstreamFor(r.URL.Path)
+	metrics.ObserveRequest(r.URL.Path, upstreamTag(r.URL.Path, h.Override != ""))
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstream+r.URL.Path, bytes.NewReader(redacted))
 	if err != nil {
 		http.Error(w, "upstream request error", http.StatusInternalServerError)
 		return
 	}
 	copyHeaders(req.Header, r.Header)
+	// Take identity encoding so the response body is plaintext we can redact.
+	req.Header.Del("Accept-Encoding")
 	if req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -119,40 +127,81 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set("Authorization", "Bearer "+h.APIKey)
 	}
 
+	start := time.Now()
 	resp, err := h.Client.Do(req)
 	if err != nil {
+		metrics.UpstreamError()
 		h.Logger.Error("upstream error", "err", err)
 		http.Error(w, "upstream error", http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
-	for k, vs := range resp.Header {
-		for _, v := range vs {
-			w.Header().Add(k, v)
-		}
-	}
-	w.WriteHeader(resp.StatusCode)
-	if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
-		flushStream(w, resp.Body)
-	} else {
-		io.Copy(w, resp.Body)
-	}
+	metrics.ObserveResponse(r.URL.Path, resp.StatusCode, time.Since(start))
+	h.writeResponse(w, resp, r.URL.Path)
 }
 
-// flushStream copies an SSE body, flushing each read so tokens arrive live.
-func flushStream(w http.ResponseWriter, r io.Reader) {
-	flusher, _ := w.(http.Flusher)
-	buf := make([]byte, 4096)
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			w.Write(buf[:n])
-			if flusher != nil {
-				flusher.Flush()
-			}
+// upstreamTag is a low-cardinality label for which upstream a path routes to.
+func upstreamTag(path string, override bool) string {
+	if override {
+		return "override"
+	}
+	if strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete") {
+		return "anthropic"
+	}
+	return "openai"
+}
+
+// writeResponse redacts the upstream response (SSE or JSON) before relaying it.
+func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path string) {
+	ct := resp.Header.Get("Content-Type")
+	copyResponseHeaders(w.Header(), resp.Header)
+
+	if strings.HasPrefix(ct, "text/event-stream") {
+		w.Header().Del("Content-Length")
+		w.WriteHeader(resp.StatusCode)
+		flush := func() {}
+		if fl, ok := w.(http.Flusher); ok {
+			flush = fl.Flush
 		}
+		sr := redact.NewStreamRedactor(path)
+		sr.Process(w, flush, resp.Body)
+		metrics.ObserveRedactions("response", sr.Counts())
+		return
+	}
+
+	if strings.HasPrefix(ct, "application/json") {
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
+			w.WriteHeader(http.StatusBadGateway)
 			return
+		}
+		if red, counts, rerr := redact.RedactResponse(path, body); rerr == nil {
+			body = red
+			metrics.ObserveRedactions("response", kindCounts(counts))
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+		return
+	}
+
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+// kindCounts converts redaction counts to string-keyed counts for metrics.
+func kindCounts(counts map[redact.Kind]int) map[string]int {
+	out := make(map[string]int, len(counts))
+	for k, v := range counts {
+		out[string(k)] = v
+	}
+	return out
+}
+
+func copyResponseHeaders(dst, src http.Header) {
+	for k, vs := range src {
+		for _, v := range vs {
+			dst.Add(k, v)
 		}
 	}
 }

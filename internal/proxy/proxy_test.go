@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -146,6 +147,76 @@ func TestProxyForwardsAnthropicAuthHeaders(t *testing.T) {
 
 	if apiKey != "sk-ant-secret" || ver != "2023-06-01" {
 		t.Fatalf("anthropic auth headers not forwarded: key=%q ver=%q", apiKey, ver)
+	}
+}
+
+func TestProxyRedactsJSONResponse(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"reply to a@b.com"}}]}`))
+	}))
+	defer upstream.Close()
+
+	logPath := filepath.Join(t.TempDir(), "a.jsonl")
+	lg, _ := audit.Open(logPath)
+	defer lg.Close()
+	h := proxy.New(upstream.URL, upstream.URL, "", "k", lg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o","messages":[]}`))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	got := rec.Body.String()
+	if strings.Contains(got, "a@b.com") {
+		t.Fatalf("model output PII leaked to client: %s", got)
+	}
+	if !strings.Contains(got, "[EMAIL_1]") {
+		t.Fatalf("expected redacted response: %s", got)
+	}
+	if cl := rec.Header().Get("Content-Length"); cl != strconv.Itoa(len(got)) {
+		t.Fatalf("Content-Length %q does not match body length %d", cl, len(got))
+	}
+}
+
+func TestProxyRedactsSSEResponse(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fl, _ := w.(http.Flusher)
+		chunks := []string{
+			"event: content_block_delta\n" + `data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"mail jo"}}` + "\n\n",
+			"event: content_block_delta\n" + `data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hn@x.com"}}` + "\n\n",
+			"event: content_block_stop\n" + `data: {"type":"content_block_stop","index":0}` + "\n\n",
+		}
+		for _, c := range chunks {
+			w.Write([]byte(c))
+			if fl != nil {
+				fl.Flush()
+			}
+		}
+	}))
+	defer upstream.Close()
+
+	logPath := filepath.Join(t.TempDir(), "a.jsonl")
+	lg, _ := audit.Open(logPath)
+	defer lg.Close()
+	h := proxy.New(upstream.URL, upstream.URL, "", "k", lg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	body := `{"model":"claude-3","stream":true,"messages":[]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	got := rec.Body.String()
+	if strings.Contains(got, "john@x.com") {
+		t.Fatalf("model output PII leaked in stream: %s", got)
+	}
+	if !strings.Contains(got, "[EMAIL_1]") {
+		t.Fatalf("expected redacted token in stream: %s", got)
+	}
+	if !rec.Flushed {
+		t.Fatal("expected the stream to be flushed")
 	}
 }
 

@@ -17,8 +17,10 @@ import (
 	"github.com/sphragis-oss/sphragis/internal/audit"
 	"github.com/sphragis-oss/sphragis/internal/config"
 	"github.com/sphragis-oss/sphragis/internal/control"
+	"github.com/sphragis-oss/sphragis/internal/metrics"
 	"github.com/sphragis-oss/sphragis/internal/proxy"
 	"github.com/sphragis-oss/sphragis/internal/redact"
+	"github.com/sphragis-oss/sphragis/internal/vault"
 )
 
 func serveCmd() *cobra.Command {
@@ -34,7 +36,10 @@ func serveCmd() *cobra.Command {
 }
 
 func serve(logger *slog.Logger) error {
-	cfg := config.FromEnv()
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
 	if cfg.CustomTermsFile != "" {
 		terms, err := config.LoadCustomTerms(cfg.CustomTermsFile)
 		if err != nil {
@@ -47,6 +52,16 @@ func serve(logger *slog.Logger) error {
 		redact.ConfigureNER(cfg.NERURL)
 		logger.Info("external NER detector enabled", "url", cfg.NERURL)
 	}
+	if key, ok, err := vault.LoadKey(os.Getenv("SPHRAGIS_VAULT_KEY"), cfg.VaultKeyfile); err != nil {
+		return err
+	} else if ok {
+		v, err := vault.Open(cfg.VaultPath, key)
+		if err != nil {
+			return err
+		}
+		redact.ConfigureVault(v)
+		logger.Info("reversible tokenization enabled", "vault", cfg.VaultPath)
+	}
 	log, err := audit.Open(cfg.AuditLogPath)
 	if err != nil {
 		return err
@@ -56,6 +71,7 @@ func serve(logger *slog.Logger) error {
 	mux := http.NewServeMux()
 	mux.Handle("/v1/", proxy.New(cfg.AnthropicBaseURL, cfg.OpenAIBaseURL, cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
+	mux.Handle("/metrics", metrics.Handler())
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: mux}
 
 	stopCh := make(chan struct{})

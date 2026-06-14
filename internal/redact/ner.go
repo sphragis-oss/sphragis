@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -42,7 +41,7 @@ func nerKind(t string) Kind {
 
 // redact calls the external NER service and tokenizes returned entities; it is
 // best-effort and fails open so an NER outage never blocks regex redaction.
-func (n *nerClient) redact(s string, counts map[Kind]int, seen map[Kind]map[string]int) string {
+func (n *nerClient) redact(r *Redactor, s string, counts map[Kind]int, seen map[Kind]map[string]int) string {
 	body, _ := json.Marshal(map[string]string{"text": s})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -74,16 +73,9 @@ func (n *nerClient) redact(s string, counts map[Kind]int, seen map[Kind]map[stri
 			continue
 		}
 		k := nerKind(e.Type)
-		if seen[k] == nil {
-			seen[k] = map[string]int{}
-		}
-		num, ok := seen[k][e.Text]
-		if !ok {
-			num = len(seen[k]) + 1
-			seen[k][e.Text] = num
-		}
+		tok := r.assign(k, e.Text, seen)
 		counts[k] += c
-		s = strings.ReplaceAll(s, e.Text, "["+string(k)+"_"+strconv.Itoa(num)+"]")
+		s = strings.ReplaceAll(s, e.Text, "["+tok+"]")
 	}
 	return s
 }

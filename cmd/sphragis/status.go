@@ -30,7 +30,10 @@ func statusCmd() *cobra.Command {
 }
 
 func runStatus() error {
-	cfg := config.FromEnv()
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
 	st := control.LoadState()
 	var errs, warns []string
 	var rows []string

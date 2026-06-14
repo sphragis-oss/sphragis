@@ -4,16 +4,18 @@ This roadmap describes the direction of Sphragis. It is a living document and
 priorities may shift based on community feedback. Dates are intentionally
 omitted while the project is early; items are grouped by horizon.
 
-## Now (0.1.x)
+## Now (0.2.x)
 
 - Harden the core proxy and redaction paths.
 - Expand detector coverage and test fixtures across the supported wire formats.
 - Container image and a basic Kubernetes deployment manifest.
+- Finer-grained streaming flush: today held assistant text is emitted at line
+  boundaries; flush at safe sub-line boundaries for snappier token streaming.
 
 ## Next
 
-- Redaction of model output (responses currently pass through unscanned).
-- Configurable per-route redaction policy.
+- Configurable per-route and per-kind redaction policy (enable/disable detectors,
+  choose token style) instead of an all-or-nothing built-in set.
 - Bundle a reference NER service so name/address/health detection works without
   an external dependency (today it requires `SPHRAGIS_NER_URL`).
 
@@ -33,6 +35,19 @@ omitted while the project is early; items are grouped by horizon.
 - `sphragis anchor`: Merkle-root anchoring to public OpenTimestamps calendars
   with a `.ots` proof, including an on/off toggle for automatic periodic
   anchoring on a schedule.
+- Response (model output) redaction for JSON and streamed SSE bodies, with
+  cross-chunk buffering so values split across SSE deltas are still tokenized.
+- Optional reversible tokenization: a local AES-256-GCM sealed vault and
+  `sphragis reveal` to restore originals inside the trust boundary.
+- Prometheus `/metrics` endpoint and an optional YAML config file, both with no
+  added dependencies.
+- Multi-provider auto-routing: one gateway routes by request path to the
+  Anthropic and OpenAI upstreams at once, protecting Claude Code and Codex into
+  a single audit log.
+- Cobra-based CLI with grouped help, shell completion, and a colored
+  `sphragis status` shield showing gateway, audit-chain, and redaction state.
+- Background daemon lifecycle (`start`/`stop`/`restart`/`status`) with pid/state
+  under `~/.sphragis`.
 
 ## Out of scope for the open project
 

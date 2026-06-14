@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/sphragis-oss/sphragis/internal/vault"
 )
 
 type Kind string
@@ -42,6 +44,7 @@ type Result struct {
 type Redactor struct {
 	detectors []detector
 	ner       *nerClient
+	vault     *vault.Vault
 }
 
 // New builds a Redactor from the built-ins plus optional exact-match custom terms.
@@ -73,10 +76,10 @@ func (r *Redactor) Redact(s string) Result {
 	counts := map[Kind]int{}
 	seen := map[Kind]map[string]int{}
 	for _, d := range r.detectors {
-		s = d.apply(s, counts, seen)
+		s = d.apply(r, s, counts, seen)
 	}
 	if r.ner != nil {
-		s = r.ner.redact(s, counts, seen)
+		s = r.ner.redact(r, s, counts, seen)
 	}
 	return Result{Text: s, Counts: counts}
 }
@@ -93,10 +96,34 @@ func (r *Redactor) SetNER(url string) {
 // ConfigureNER attaches an NER service to the default redactor.
 func ConfigureNER(url string) { defaultRedactor.SetNER(url) }
 
+// SetVault enables reversible tokenization with gateway-global token numbering.
+func (r *Redactor) SetVault(v *vault.Vault) { r.vault = v }
+
+// ConfigureVault enables the reversible-tokenization vault on the default redactor.
+func ConfigureVault(v *vault.Vault) { defaultRedactor.SetVault(v) }
+
+// assign returns the bare token (e.g. "EMAIL_1") for a value. With a vault,
+// numbering is gateway-global and the original is recorded; otherwise it is
+// per-field and ephemeral.
+func (r *Redactor) assign(kind Kind, val string, seen map[Kind]map[string]int) string {
+	if r.vault != nil {
+		return r.vault.Assign(string(kind), val)
+	}
+	if seen[kind] == nil {
+		seen[kind] = map[string]int{}
+	}
+	n, ok := seen[kind][val]
+	if !ok {
+		n = len(seen[kind]) + 1
+		seen[kind][val] = n
+	}
+	return string(kind) + "_" + strconv.Itoa(n)
+}
+
 // Redact runs the default redactor.
 func Redact(s string) Result { return defaultRedactor.Redact(s) }
 
-func (d detector) apply(s string, counts map[Kind]int, seen map[Kind]map[string]int) string {
+func (d detector) apply(r *Redactor, s string, counts map[Kind]int, seen map[Kind]map[string]int) string {
 	locs := d.re.FindAllStringSubmatchIndex(s, -1)
 	if locs == nil {
 		return s
@@ -116,17 +143,9 @@ func (d detector) apply(s string, counts map[Kind]int, seen map[Kind]map[string]
 		if d.valid != nil && !d.valid(val) {
 			continue
 		}
-		if seen[d.kind] == nil {
-			seen[d.kind] = map[string]int{}
-		}
-		n, ok := seen[d.kind][val]
-		if !ok {
-			n = len(seen[d.kind]) + 1
-			seen[d.kind][val] = n
-		}
 		counts[d.kind]++
 		b.WriteString(s[last:gs])
-		b.WriteString("[" + string(d.kind) + "_" + strconv.Itoa(n) + "]")
+		b.WriteString("[" + r.assign(d.kind, val, seen) + "]")
 		last = ge
 	}
 	b.WriteString(s[last:])
