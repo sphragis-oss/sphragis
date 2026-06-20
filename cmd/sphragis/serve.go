@@ -53,11 +53,14 @@ func serve(logger *slog.Logger) error {
 		}
 		logger.Info("loaded custom redaction terms", "count", len(terms))
 	}
-	if terms != nil || cfg.EUPack {
-		redact.Configure(terms, cfg.EUPack)
+	if terms != nil || cfg.EUPack || cfg.BuiltinNER {
+		redact.Configure(terms, cfg.EUPack, cfg.BuiltinNER)
 	}
 	if cfg.EUPack {
 		logger.Info("EU PII pack enabled")
+	}
+	if cfg.BuiltinNER {
+		logger.Info("built-in NER enabled")
 	}
 	if cfg.NERURL != "" {
 		redact.ConfigureNER(cfg.NERURL)
@@ -89,7 +92,7 @@ func serve(logger *slog.Logger) error {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	mux.Handle("/metrics", metrics.Handler())
 	// preview redactor has no vault, so the playground never mutates state
-	ui.New(redact.NewConfigured(terms, cfg.EUPack), cfg.AuditLogPath).Register(mux)
+	ui.New(redact.NewConfigured(terms, cfg.EUPack, cfg.BuiltinNER), cfg.AuditLogPath).Register(mux)
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: mux}
 
 	stopCh := make(chan struct{})

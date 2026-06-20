@@ -228,7 +228,7 @@ live per line. Streamed bodies are redacted with the regex/custom detectors only
 | Private key | `[PRIVATEKEY_n]` | PEM `BEGIN ... PRIVATE KEY` blocks |
 | JWT | `[JWT_n]` | three base64url segments |
 | Custom names | `[NAME_n]` | your own term list (`SPHRAGIS_CUSTOM_TERMS_FILE`) |
-| Name / Address / Health | `[NAME_n]` `[ADDRESS_n]` `[HEALTH_n]` | optional external NER service (below) |
+| Name / Address / Health | `[NAME_n]` `[ADDRESS_n]` `[HEALTH_n]` | opt-in built-in NER, or an external NER service (below) |
 
 Tokens are stable within a text field: the same value always maps to the same
 number, so the model can still reason about "the same person" without ever seeing
@@ -246,6 +246,16 @@ patterns can match unrelated numbers in non-EU data.
 | EU VAT | `[VAT_n]` | country-prefixed VAT numbers for the 27 member states |
 | Greek AMKA | `[AMKA_n]` | 11 digits, plausible birthdate prefix, Luhn-validated |
 | Greek AFM / tax id | `[TAXID_n]` | 9 digits with the official modulo-11 check digit |
+
+### Built-in NER (opt-in)
+
+Set `SPHRAGIS_NER_BUILTIN=true` (or `ner_builtin: true`) for dependency-free name
+and street-address detection, no external service required. It uses a gazetteer
+of common given names plus conservative heuristics (titles like `Dr.`, trigger
+phrases like "patient", and `<number> <Street>` addresses), and is
+precision-biased: a name only matches when followed by a capitalized surname, so
+everyday capitalized words are left alone. It is off by default. For the highest
+accuracy, or for health terms, use the external NER service below instead.
 
 Arbitrary names, addresses and health terms cannot be matched by regex. Point
 `SPHRAGIS_NER_URL` at an NER service (for example a Microsoft Presidio sidecar)
@@ -287,6 +297,7 @@ Override the calendars with `SPHRAGIS_OTS_CALENDARS` (comma-separated).
 | `SPHRAGIS_HOME` | `~/.sphragis` | State directory (pid, logs, default audit log) |
 | `SPHRAGIS_CUSTOM_TERMS_FILE` | (none) | File of extra terms to redact, one per line (names, codenames) |
 | `SPHRAGIS_NER_URL` | (none) | External NER service for names/addresses/health terms |
+| `SPHRAGIS_NER_BUILTIN` | `false` | Enable the opt-in dependency-free name/address detector |
 | `SPHRAGIS_EU_PACK` | `false` | Enable the opt-in EU detectors (VAT, AMKA, Greek tax id) |
 | `SPHRAGIS_OTS_CALENDARS` | public OTS calendars | Comma-separated OpenTimestamps calendar URLs |
 | `SPHRAGIS_CONFIG` | `~/.sphragis/sphragis.yaml` | Optional config file; env vars override its values |
@@ -308,6 +319,7 @@ openai_base_url: "https://api.openai.com"
 google_base_url: "https://generativelanguage.googleapis.com"
 audit_log_path: "~/.sphragis/audit.jsonl"
 ner_url: ""
+ner_builtin: false
 eu_pack: false
 vault_keyfile: ""
 ots_calendars:

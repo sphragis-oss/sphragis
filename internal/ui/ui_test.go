@@ -17,7 +17,7 @@ import (
 func newTestHandler(t *testing.T) (*Handler, string) {
 	t.Helper()
 	logPath := filepath.Join(t.TempDir(), "audit.jsonl")
-	return New(redact.NewConfigured(nil, true), logPath), logPath
+	return New(redact.NewConfigured(nil, true, false), logPath), logPath
 }
 
 func TestServePage(t *testing.T) {

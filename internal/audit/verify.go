@@ -10,8 +10,7 @@ import (
 	"strings"
 )
 
-// Recent returns up to n of the most recent records, oldest-first. A missing
-// log yields no records and no error.
+// Recent returns up to n most recent records, oldest-first; a missing log is empty.
 func Recent(path string, n int) ([]Record, error) {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {

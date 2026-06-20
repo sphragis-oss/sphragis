@@ -71,20 +71,21 @@ var defaultRedactor = New(nil)
 // BuiltinCount returns the number of built-in detectors.
 func BuiltinCount() int { return len(builtins) }
 
-// NewConfigured builds a redactor from custom terms, optionally prepending the
-// EU pack (it runs before the built-ins). No vault or NER is attached.
-func NewConfigured(customTerms []string, euPack bool) *Redactor {
+// NewConfigured builds a redactor from custom terms, with optional EU and NER packs.
+func NewConfigured(customTerms []string, euPack, builtinNER bool) *Redactor {
 	r := New(customTerms)
 	if euPack {
 		r.detectors = append(append([]detector(nil), euDetectors...), r.detectors...)
+	}
+	if builtinNER {
+		r.detectors = append(r.detectors, nerDetectors...)
 	}
 	return r
 }
 
 // Configure swaps the default redactor at startup; not concurrency-safe.
-// With euPack set, the opt-in EU detectors run before the built-ins.
-func Configure(customTerms []string, euPack bool) {
-	defaultRedactor = NewConfigured(customTerms, euPack)
+func Configure(customTerms []string, euPack, builtinNER bool) {
+	defaultRedactor = NewConfigured(customTerms, euPack, builtinNER)
 }
 
 // Redact replaces detected sensitive values with stable [KIND_n] tokens.

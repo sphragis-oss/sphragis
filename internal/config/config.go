@@ -23,6 +23,7 @@ type Config struct {
 	VaultKeyfile     string
 	VaultPath        string
 	EUPack           bool
+	BuiltinNER       bool
 }
 
 // defaults returns the baseline config before file and env layering.
@@ -87,6 +88,9 @@ func applyEnv(c *Config) {
 	if v := os.Getenv("SPHRAGIS_EU_PACK"); v != "" {
 		c.EUPack = truthy(v)
 	}
+	if v := os.Getenv("SPHRAGIS_NER_BUILTIN"); v != "" {
+		c.BuiltinNER = truthy(v)
+	}
 }
 
 // truthy parses a boolean-ish string ("true", "1", "yes", "on").
@@ -135,6 +139,8 @@ func applyFile(c *Config, path string) error {
 			*dst = v
 		} else if k == "eu_pack" {
 			c.EUPack = truthy(v)
+		} else if k == "ner_builtin" {
+			c.BuiltinNER = truthy(v)
 		} else if k != "ots_calendars" {
 			return fmt.Errorf("unknown key %q", k)
 		}

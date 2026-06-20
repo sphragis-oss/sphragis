@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in built-in NER (`SPHRAGIS_NER_BUILTIN=true` or `ner_builtin: true`).
+  Dependency-free name and street-address detection using an embedded gazetteer
+  of common given names plus conservative heuristics (titles, trigger phrases,
+  `<number> <Street>`). Precision-biased (a name matches only when followed by a
+  capitalized surname) and off by default. The external `SPHRAGIS_NER_URL`
+  service stays available for higher accuracy and health terms.
+
 ## [0.5.0] - 2026-06-20
 
 ### Added

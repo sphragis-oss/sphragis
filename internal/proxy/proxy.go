@@ -42,8 +42,7 @@ func New(anthropic, openai, override, apiKey string, log *audit.Log, logger *slo
 	}
 }
 
-// upstreamFor routes by request path: Anthropic (Claude Code), Google (Gemini),
-// or OpenAI (Codex and the rest).
+// upstreamFor routes by request path to Anthropic, Google (Gemini), or OpenAI.
 func (h *Handler) upstreamFor(path string) string {
 	switch {
 	case h.Override != "":
@@ -233,8 +232,7 @@ func extractModel(body []byte) string {
 	return m.Model
 }
 
-// modelFromPath pulls the model out of a Gemini path like
-// /v1beta/models/gemini-1.5-pro:generateContent.
+// modelFromPath pulls the model from a Gemini path (/models/<model>:method).
 func modelFromPath(path string) string {
 	i := strings.Index(path, "/models/")
 	if i < 0 {

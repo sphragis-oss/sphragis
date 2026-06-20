@@ -56,8 +56,8 @@ func TestEUPackDisabledByDefault(t *testing.T) {
 }
 
 func TestConfigureEnablesEUPack(t *testing.T) {
-	defer Configure(nil, false)
-	Configure(nil, true)
+	defer Configure(nil, false, false)
+	Configure(nil, true, false)
 	if res := Redact("vat EL123456783"); res.Counts[VAT] != 1 {
 		t.Fatalf("Configure euPack not applied: %q counts=%v", res.Text, res.Counts)
 	}

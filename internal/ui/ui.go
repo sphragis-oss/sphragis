@@ -20,8 +20,7 @@ type Handler struct {
 	logPath string
 }
 
-// New builds a UI handler. preview redacts submitted text without a vault, so
-// the playground never mutates state; logPath is the audit log it displays.
+// New builds a UI handler; the vault-free preview means the playground never mutates state.
 func New(preview *redact.Redactor, logPath string) *Handler {
 	return &Handler{preview: preview, logPath: logPath}
 }
