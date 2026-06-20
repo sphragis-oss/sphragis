@@ -21,6 +21,7 @@ type Config struct {
 	OTSCalendars     []string
 	VaultKeyfile     string
 	VaultPath        string
+	EUPack           bool
 }
 
 // defaults returns the baseline config before file and env layering.
@@ -80,6 +81,18 @@ func applyEnv(c *Config) {
 	if v := os.Getenv("SPHRAGIS_OTS_CALENDARS"); v != "" {
 		c.OTSCalendars = splitCSV(v)
 	}
+	if v := os.Getenv("SPHRAGIS_EU_PACK"); v != "" {
+		c.EUPack = truthy(v)
+	}
+}
+
+// truthy parses a boolean-ish string ("true", "1", "yes", "on").
+func truthy(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "true", "1", "yes", "on":
+		return true
+	}
+	return false
 }
 
 func setEnv(dst *string, key string) {
@@ -116,6 +129,8 @@ func applyFile(c *Config, path string) error {
 	for k, v := range scalars {
 		if dst, ok := str[k]; ok {
 			*dst = v
+		} else if k == "eu_pack" {
+			c.EUPack = truthy(v)
 		} else if k != "ots_calendars" {
 			return fmt.Errorf("unknown key %q", k)
 		}

@@ -84,8 +84,8 @@ func TestCustomTerms(t *testing.T) {
 }
 
 func TestConfigureAffectsPackageRedact(t *testing.T) {
-	defer Configure(nil)
-	Configure([]string{"Zephyr Corp"})
+	defer Configure(nil, false)
+	Configure([]string{"Zephyr Corp"}, false)
 	res := Redact("deal with Zephyr Corp today")
 	if res.Counts[Name] != 1 {
 		t.Fatalf("Configure terms not applied via package Redact: %v", res)

@@ -26,6 +26,9 @@ const (
 	Name       Kind = "NAME"
 	Address    Kind = "ADDRESS"
 	Health     Kind = "HEALTH"
+	VAT        Kind = "VAT"
+	AMKA       Kind = "AMKA"
+	TaxID      Kind = "TAXID"
 )
 
 type detector struct {
@@ -69,7 +72,14 @@ var defaultRedactor = New(nil)
 func BuiltinCount() int { return len(builtins) }
 
 // Configure swaps the default redactor at startup; not concurrency-safe.
-func Configure(customTerms []string) { defaultRedactor = New(customTerms) }
+// With euPack set, the opt-in EU detectors run before the built-ins.
+func Configure(customTerms []string, euPack bool) {
+	r := New(customTerms)
+	if euPack {
+		r.detectors = append(append([]detector(nil), euDetectors...), r.detectors...)
+	}
+	defaultRedactor = r
+}
 
 // Redact replaces detected sensitive values with stable [KIND_n] tokens.
 func (r *Redactor) Redact(s string) Result {

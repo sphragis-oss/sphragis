@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in EU PII pack (`SPHRAGIS_EU_PACK=true` or `eu_pack: true`). Adds
+  EU-specific detectors that run before the built-ins: EU VAT numbers (all 27
+  member states, country-prefixed), Greek AMKA (11 digits, birthdate prefix,
+  Luhn-checked), and Greek AFM / tax id (9 digits, modulo-11 check digit). Off
+  by default, since these patterns can match unrelated numbers in non-EU data.
+
 ## [0.4.0] - 2026-06-20
 
 ### Added

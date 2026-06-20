@@ -40,13 +40,19 @@ func serve(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	var terms []string
 	if cfg.CustomTermsFile != "" {
-		terms, err := config.LoadCustomTerms(cfg.CustomTermsFile)
+		terms, err = config.LoadCustomTerms(cfg.CustomTermsFile)
 		if err != nil {
 			return err
 		}
-		redact.Configure(terms)
 		logger.Info("loaded custom redaction terms", "count", len(terms))
+	}
+	if terms != nil || cfg.EUPack {
+		redact.Configure(terms, cfg.EUPack)
+	}
+	if cfg.EUPack {
+		logger.Info("EU PII pack enabled")
 	}
 	if cfg.NERURL != "" {
 		redact.ConfigureNER(cfg.NERURL)

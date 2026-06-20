@@ -69,6 +69,24 @@ func TestLoadConfigFileAndEnvPrecedence(t *testing.T) {
 	}
 }
 
+func TestEUPackFromFileAndEnv(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "sphragis.yaml")
+	if err := os.WriteFile(cfgPath, []byte("eu_pack: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SPHRAGIS_CONFIG", cfgPath)
+	if c, err := Load(); err != nil || !c.EUPack {
+		t.Fatalf("eu_pack from file: euPack=%v err=%v", c.EUPack, err)
+	}
+
+	t.Setenv("SPHRAGIS_CONFIG", "")
+	t.Setenv("SPHRAGIS_EU_PACK", "1")
+	if c := FromEnv(); !c.EUPack {
+		t.Fatal("SPHRAGIS_EU_PACK=1 should enable the pack")
+	}
+}
+
 func TestLoadConfigUnknownKey(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "sphragis.yaml")

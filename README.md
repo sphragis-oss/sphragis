@@ -219,6 +219,19 @@ Tokens are stable within a text field: the same value always maps to the same
 number, so the model can still reason about "the same person" without ever seeing
 them.
 
+### EU pack (opt-in)
+
+Set `SPHRAGIS_EU_PACK=true` (or `eu_pack: true` in the config file) to add
+EU-specific detectors. They run before the built-ins so a country-prefixed VAT
+number is not mistaken for an IBAN. The pack is off by default because these
+patterns can match unrelated numbers in non-EU data.
+
+| Kind | Token | Matcher |
+|---|---|---|
+| EU VAT | `[VAT_n]` | country-prefixed VAT numbers for the 27 member states |
+| Greek AMKA | `[AMKA_n]` | 11 digits, plausible birthdate prefix, Luhn-validated |
+| Greek AFM / tax id | `[TAXID_n]` | 9 digits with the official modulo-11 check digit |
+
 Arbitrary names, addresses and health terms cannot be matched by regex. Point
 `SPHRAGIS_NER_URL` at an NER service (for example a Microsoft Presidio sidecar)
 that accepts `{"text": "..."}` and returns
@@ -256,6 +269,7 @@ Override the calendars with `SPHRAGIS_OTS_CALENDARS` (comma-separated).
 | `SPHRAGIS_HOME` | `~/.sphragis` | State directory (pid, logs, default audit log) |
 | `SPHRAGIS_CUSTOM_TERMS_FILE` | (none) | File of extra terms to redact, one per line (names, codenames) |
 | `SPHRAGIS_NER_URL` | (none) | External NER service for names/addresses/health terms |
+| `SPHRAGIS_EU_PACK` | `false` | Enable the opt-in EU detectors (VAT, AMKA, Greek tax id) |
 | `SPHRAGIS_OTS_CALENDARS` | public OTS calendars | Comma-separated OpenTimestamps calendar URLs |
 | `SPHRAGIS_CONFIG` | `~/.sphragis/sphragis.yaml` | Optional config file; env vars override its values |
 | `SPHRAGIS_VAULT_KEY` | (none) | Base64 32-byte key; enables reversible tokenization |
@@ -275,6 +289,7 @@ anthropic_base_url: "https://api.anthropic.com"
 openai_base_url: "https://api.openai.com"
 audit_log_path: "~/.sphragis/audit.jsonl"
 ner_url: ""
+eu_pack: false
 vault_keyfile: ""
 ots_calendars:
   - "https://alice.btc.calendar.opentimestamps.org"
