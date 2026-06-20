@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-06-20
+
 ### Added
 
 - Read-only web UI at `/ui` (served by `sphragis serve`). A single
@@ -15,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   view (chain status, record count, Merkle root, per-kind totals, recent
   requests by metadata only). No external assets or dependencies. New
   endpoints: `GET /ui`, `POST /ui/redact`, `GET /ui/audit`.
+
+### Fixed
+
+- `sphragis serve` now creates the state directory (`SPHRAGIS_HOME`) on startup,
+  like the daemon does. Previously a foreground `serve` against a fresh home
+  failed with `open .../audit.jsonl: no such file or directory`.
 
 ## [0.4.5] - 2026-06-20
 
@@ -153,7 +161,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency: `github.com/nbd-wtf/opentimestamps` for Merkle-root anchoring.
 - Apache 2.0 licensed, SPDX headers on all source files.
 
-[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.4.6...HEAD
+[0.4.6]: https://github.com/sphragis-oss/sphragis/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/sphragis-oss/sphragis/compare/v0.4.0...v0.4.5
 [0.4.0]: https://github.com/sphragis-oss/sphragis/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sphragis-oss/sphragis/compare/v0.2.0...v0.3.0

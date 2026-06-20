@@ -41,6 +41,9 @@ func serve(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if err := control.EnsureHome(); err != nil {
+		return err
+	}
 	var terms []string
 	if cfg.CustomTermsFile != "" {
 		terms, err = config.LoadCustomTerms(cfg.CustomTermsFile)
