@@ -10,6 +10,40 @@ import (
 	"strings"
 )
 
+// Recent returns up to n of the most recent records, oldest-first. A missing
+// log yields no records and no error.
+func Recent(path string, n int) ([]Record, error) {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	var recs []Record
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var r Record
+		if err := json.Unmarshal([]byte(line), &r); err != nil {
+			return nil, fmt.Errorf("corrupt audit line: %w", err)
+		}
+		recs = append(recs, r)
+		if len(recs) > n {
+			recs = recs[1:]
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	return recs, nil
+}
+
 // Verify replays the log checking sequence, links and hashes; returns count and Merkle root.
 func Verify(path string) (uint64, string, error) {
 	f, err := os.Open(path)

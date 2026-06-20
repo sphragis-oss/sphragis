@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Sphragis control panel</title>
+<style>
+  :root {
+    --ink: #14130f; --panel: #1c1b16; --line: #2c2a23;
+    --cream: #f4efe3; --muted: #b8b3a6; --faint: #6f6a5d;
+    --accent: #d92b21; --ok: #46d160; --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--cream);
+    font: 15px/1.5 -apple-system, system-ui, "Segoe UI", sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 28px 20px 64px; }
+  header { display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+  header h1 { font-size: 1.15rem; margin: 0; letter-spacing: -0.02em; }
+  header .sub { color: var(--faint); font-family: var(--mono); font-size: 0.78rem; }
+  h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--faint);
+    font-family: var(--mono); margin: 36px 0 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  textarea, .out { width: 100%; min-height: 200px; background: var(--panel); color: var(--cream);
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-family: var(--mono);
+    font-size: 0.84rem; line-height: 1.6; resize: vertical; }
+  .out { white-space: pre-wrap; word-break: break-word; overflow: auto; margin: 0; }
+  .row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 9px 16px;
+    font-weight: 600; cursor: pointer; font-size: 0.86rem; }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  button:hover { filter: brightness(1.08); }
+  .note { color: var(--faint); font-size: 0.78rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { font-family: var(--mono); font-size: 0.74rem; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; padding: 3px 10px; color: var(--muted); }
+  .chip b { color: var(--cream); }
+  mark.tok { background: rgba(217,43,33,0.18); color: #ff8a82; border: 1px solid rgba(217,43,33,0.4);
+    border-radius: 4px; padding: 0 2px; font-weight: 600; }
+  .cards { display: flex; flex-wrap: wrap; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; min-width: 150px; }
+  .card .k { color: var(--faint); font-size: 0.72rem; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; }
+  .card .v { font-size: 1.05rem; margin-top: 4px; font-family: var(--mono); }
+  .badge { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 0.82rem; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--accent); }
+  .mono { font-family: var(--mono); }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.8rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--faint); font-family: var(--mono); font-weight: 500; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  td.mono { color: var(--muted); }
+  .empty { color: var(--faint); padding: 14px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Sphragis</h1>
+    <span class="sub">local control panel</span>
+  </header>
+
+  <h2>Redaction playground</h2>
+  <div class="grid">
+    <div>
+      <textarea id="in" spellcheck="false" aria-label="Text to redact">Email john.doe@acme.com about invoice EL123456783, card 4111 1111 1111 1111, IBAN GR16 0110 1250 0000 0001 2300 695, call +30 21 1234567. Bearer sk-ant-abc123def456ghi789jkl.</textarea>
+    </div>
+    <div>
+      <pre class="out" id="out" aria-live="polite">Redacted output appears here.</pre>
+    </div>
+  </div>
+  <div class="row">
+    <button id="go">Redact</button>
+    <span class="note">Previewed locally in the gateway. This text is never logged, stored, or forwarded.</span>
+  </div>
+  <div class="chips" id="counts"></div>
+
+  <h2>Audit log</h2>
+  <div class="cards" id="cards">
+    <div class="card"><div class="k">chain</div><div class="v" id="chain">…</div></div>
+    <div class="card"><div class="k">records</div><div class="v" id="records">…</div></div>
+    <div class="card"><div class="k">last entry</div><div class="v mono" id="last">…</div></div>
+    <div class="card" style="flex:1"><div class="k">merkle root</div><div class="v mono" id="root" style="font-size:0.8rem">…</div></div>
+  </div>
+  <div class="chips" id="totals"></div>
+  <div class="row"><button class="ghost" id="refresh">Refresh</button><span class="note">Metadata only: paths, models, and redaction counts. Prompt contents are never stored.</span></div>
+  <div id="recent"></div>
+</div>
+
+<script>
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const highlight = (s) => esc(s).replace(/\[[A-Z]+_\d+\]/g, (m) => '<mark class="tok">' + m + "</mark>");
+
+  async function redact() {
+    const text = document.getElementById("in").value;
+    const out = document.getElementById("out");
+    try {
+      const r = await fetch("/ui/redact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      const data = await r.json();
+      out.innerHTML = data.text ? highlight(data.text) : "(empty)";
+      const counts = document.getElementById("counts");
+      const kinds = Object.keys(data.counts || {}).sort();
+      counts.innerHTML = kinds.length
+        ? kinds.map((k) => '<span class="chip">' + k + " <b>" + data.counts[k] + "</b></span>").join("")
+        : '<span class="chip">no PII detected</span>';
+    } catch (e) { out.textContent = "request failed"; }
+  }
+
+  function fmtTime(t) { if (!t) return "—"; const d = new Date(t); return isNaN(d) ? t : d.toLocaleString(); }
+
+  async function loadAudit() {
+    try {
+      const r = await fetch("/ui/audit");
+      const d = await r.json();
+      const chain = document.getElementById("chain");
+      if (!d.exists) { chain.innerHTML = '<span class="badge"><span class="dot"></span>no log yet</span>'; }
+      else if (d.chainOk) { chain.innerHTML = '<span class="badge"><span class="dot ok"></span>intact</span>'; }
+      else { chain.innerHTML = '<span class="badge"><span class="dot bad"></span>broken</span>'; }
+      document.getElementById("records").textContent = d.records || 0;
+      document.getElementById("last").textContent = fmtTime(d.lastTime);
+      document.getElementById("root").textContent = d.merkleRoot ? d.merkleRoot.slice(0, 24) + "…" : "—";
+      const totals = document.getElementById("totals");
+      const pk = d.perKind || {};
+      const keys = Object.keys(pk).sort((a, b) => pk[b] - pk[a]);
+      totals.innerHTML = keys.length ? keys.map((k) => '<span class="chip">' + k + " <b>" + pk[k] + "</b></span>").join("") : "";
+      const recent = document.getElementById("recent");
+      const rows = (d.recent || []);
+      if (!rows.length) { recent.innerHTML = '<div class="empty">No requests recorded yet.</div>'; return; }
+      recent.innerHTML =
+        "<table><thead><tr><th>#</th><th>time</th><th>method</th><th>path</th><th>model</th><th>redactions</th></tr></thead><tbody>" +
+        rows.map((r) => {
+          const pii = r.pii_redacted || {};
+          const sum = Object.values(pii).reduce((a, b) => a + b, 0);
+          return "<tr><td class='mono'>" + r.seq + "</td><td class='mono'>" + fmtTime(r.time) + "</td><td class='mono'>" +
+            esc(r.method || "") + "</td><td class='mono'>" + esc(r.path || "") + "</td><td class='mono'>" +
+            esc(r.model || "—") + "</td><td class='mono'>" + sum + "</td></tr>";
+        }).join("") + "</tbody></table>";
+    } catch (e) {}
+  }
+
+  document.getElementById("go").addEventListener("click", redact);
+  document.getElementById("refresh").addEventListener("click", loadAudit);
+  redact();
+  loadAudit();
+  setInterval(loadAudit, 5000);
+</script>
+</body>
+</html>

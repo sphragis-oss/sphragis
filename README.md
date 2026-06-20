@@ -318,6 +318,21 @@ key set, no originals are ever stored.
 kind and direction, requests by route, upstream latency, audit-append failures).
 It is plain-text exposition with no external dependency.
 
+## Web UI
+
+`sphragis serve` also serves a small read-only control panel at
+[`/ui`](http://localhost:8787/ui), a single self-contained page with no external
+assets:
+
+- **Redaction playground**: paste text and see exactly what gets tokenized
+  (`[EMAIL_1]`, `[VAT_1]`, ...) with per-kind counts. The preview runs in the
+  gateway and is never logged, stored, or forwarded.
+- **Audit view**: chain-integrity status, record count, Merkle root, per-kind
+  totals, and the most recent requests (metadata only, never prompt contents).
+
+The UI binds to the same address as the gateway, so keep `SPHRAGIS_LISTEN_ADDR`
+on localhost (or behind your own auth) if the log metadata is sensitive.
+
 ## Project status
 
 Sphragis is open source under Apache 2.0 and built in the open. Contributions,

@@ -20,6 +20,7 @@ import (
 	"github.com/sphragis-oss/sphragis/internal/metrics"
 	"github.com/sphragis-oss/sphragis/internal/proxy"
 	"github.com/sphragis-oss/sphragis/internal/redact"
+	"github.com/sphragis-oss/sphragis/internal/ui"
 	"github.com/sphragis-oss/sphragis/internal/vault"
 )
 
@@ -78,6 +79,8 @@ func serve(logger *slog.Logger) error {
 	mux.Handle("/v1/", proxy.New(cfg.AnthropicBaseURL, cfg.OpenAIBaseURL, cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	mux.Handle("/metrics", metrics.Handler())
+	// preview redactor has no vault, so the playground never mutates state
+	ui.New(redact.NewConfigured(terms, cfg.EUPack), cfg.AuditLogPath).Register(mux)
 	srv := &http.Server{Addr: cfg.ListenAddr, Handler: mux}
 
 	stopCh := make(chan struct{})

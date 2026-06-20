@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Read-only web UI at `/ui` (served by `sphragis serve`). A single
+  self-contained page with a redaction playground (paste text, see the tokens
+  and per-kind counts; the preview is never logged or forwarded) and an audit
+  view (chain status, record count, Merkle root, per-kind totals, recent
+  requests by metadata only). No external assets or dependencies. New
+  endpoints: `GET /ui`, `POST /ui/redact`, `GET /ui/audit`.
+
 ## [0.4.5] - 2026-06-20
 
 ### Added
