@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1
+# Used by GoReleaser: wraps the already-built binary, one build per target arch.
+# The standalone ./Dockerfile is the from-source build; this one copies the release artifact.
+
+# prep stage only exists to create the nonroot-owned state dir (distroless has no shell)
+FROM busybox:1.37@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028 AS prep
+RUN mkdir -p /data && chown 65532:65532 /data
+
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
+COPY --from=prep --chown=65532:65532 /data /data
+COPY sphragis /usr/local/bin/sphragis
+ENV SPHRAGIS_HOME=/data \
+    SPHRAGIS_LISTEN_ADDR=":8787"
+EXPOSE 8787
+VOLUME ["/data"]
+USER nonroot
+ENTRYPOINT ["/usr/local/bin/sphragis"]
+CMD ["serve"]

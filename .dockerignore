@@ -1,0 +1,13 @@
+.git
+.github
+.golangci.yml
+.goreleaser.yaml
+dist
+sphragis
+*.jsonl
+*.ots
+*.out
+.env
+*.md
+init
+install.sh

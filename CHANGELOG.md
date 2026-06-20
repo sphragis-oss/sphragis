@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Official container image. A multi-arch (`linux/amd64`, `linux/arm64`)
+  distroless image is published to `ghcr.io/sphragis-oss/sphragis` on each
+  release, built by GoReleaser. It runs as a non-root user and listens on
+  `:8787`; mount a volume at `/data` (the image's `SPHRAGIS_HOME`) to persist
+  the audit log and vault. A `Dockerfile` for building the image from source is
+  included in the repository.
+
+### Removed
+
+- `ROADMAP.md`. Direction is now tracked via GitHub issues and milestones
+  instead of a checked-in roadmap document.
+
 ## [0.3.0] - 2026-06-14
 
 ### Added

@@ -1,7 +1,7 @@
 # Adopters
 
 This page lists organizations and individuals using Sphragis. Adoption signals
-help the project grow and guide its roadmap.
+help the project grow and guide its direction.
 
 If you use Sphragis, please add yourself by opening a pull request that edits
 this file. Listing is optional and entirely up to you.

@@ -18,7 +18,7 @@ call. Self-hosted, no SaaS in the data path. We never see your prompts.
 [![CI](https://github.com/sphragis-oss/sphragis/actions/workflows/ci.yml/badge.svg)](https://github.com/sphragis-oss/sphragis/actions/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-early-orange.svg)](#project-status)
 
-[**sphragis.eu**](https://sphragis.eu) &nbsp;&bull;&nbsp; [Quick start](#quick-start) &nbsp;&bull;&nbsp; [Install](#install) &nbsp;&bull;&nbsp; [Contributing](CONTRIBUTING.md) &nbsp;&bull;&nbsp; [Roadmap](ROADMAP.md)
+[**sphragis.eu**](https://sphragis.eu) &nbsp;&bull;&nbsp; [Quick start](#quick-start) &nbsp;&bull;&nbsp; [Install](#install) &nbsp;&bull;&nbsp; [Contributing](CONTRIBUTING.md) &nbsp;&bull;&nbsp; [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -27,8 +27,7 @@ call. Self-hosted, no SaaS in the data path. We never see your prompts.
 
 > **Status: early.** The proxy, PII/secret redaction of both requests and model
 > output, the hash-chained audit log, verification, and OpenTimestamps anchoring
-> all work and are tested. A bundled ML entity-recognition service is on the
-> [roadmap](ROADMAP.md).
+> all work and are tested. A bundled ML entity-recognition service is planned.
 
 ## Why
 
@@ -122,6 +121,17 @@ brew install --cask sphragis-oss/sphragis/sphragis
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sphragis-oss/sphragis/main/install.sh | bash
 ```
+
+**Docker (multi-arch image):**
+
+```bash
+docker run -p 8787:8787 -v sphragis:/data ghcr.io/sphragis-oss/sphragis
+```
+
+The image runs as a non-root user and serves on `:8787`. The `/data` volume
+holds the audit log and vault (it is the container's `SPHRAGIS_HOME`). Pass
+provider keys and other settings with `-e`, for example
+`-e SPHRAGIS_UPSTREAM_API_KEY=sk-...`.
 
 **From source (needs Go 1.26):**
 
@@ -295,9 +305,8 @@ It is plain-text exposition with no external dependency.
 
 ## Project status
 
-Sphragis is open source under Apache 2.0 and built in the open. See the
-[roadmap](ROADMAP.md) for what's next; contributions, issues and design feedback
-are all welcome.
+Sphragis is open source under Apache 2.0 and built in the open. Contributions,
+issues and design feedback are all welcome.
 
 ## Commercial offering
 
@@ -324,7 +333,7 @@ golangci-lint run
 - [Code of conduct](CODE_OF_CONDUCT.md)
 - [Governance](GOVERNANCE.md) and [maintainers](MAINTAINERS.md)
 - [Security policy](SECURITY.md), report vulnerabilities privately
-- [Roadmap](ROADMAP.md) and [changelog](CHANGELOG.md)
+- [Changelog](CHANGELOG.md)
 
 ## License
 

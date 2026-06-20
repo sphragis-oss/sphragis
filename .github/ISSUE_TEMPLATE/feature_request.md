@@ -20,5 +20,5 @@ assignees: ""
 
 ## Additional context
 
-<!-- Links, references, or examples. For larger changes, see the roadmap and
-governance docs before filing. -->
+<!-- Links, references, or examples. For larger changes, see the governance
+docs before filing. -->
