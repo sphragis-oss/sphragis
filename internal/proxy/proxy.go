@@ -22,6 +22,7 @@ import (
 type Handler struct {
 	Anthropic string
 	OpenAI    string
+	Google    string
 	Override  string
 	APIKey    string
 	Log       *audit.Log
@@ -41,15 +42,26 @@ func New(anthropic, openai, override, apiKey string, log *audit.Log, logger *slo
 	}
 }
 
-// upstreamFor routes by request path: Anthropic (Claude Code) vs OpenAI (Codex).
+// upstreamFor routes by request path: Anthropic (Claude Code), Google (Gemini),
+// or OpenAI (Codex and the rest).
 func (h *Handler) upstreamFor(path string) string {
-	if h.Override != "" {
+	switch {
+	case h.Override != "":
 		return h.Override
-	}
-	if strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete") {
+	case strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete"):
 		return h.Anthropic
+	case isGeminiPath(path) && h.Google != "":
+		return h.Google
+	default:
+		return h.OpenAI
 	}
-	return h.OpenAI
+}
+
+// isGeminiPath reports a Google Generative Language API call.
+func isGeminiPath(path string) bool {
+	return strings.HasPrefix(path, "/v1beta/") ||
+		strings.Contains(path, ":generateContent") ||
+		strings.Contains(path, ":streamGenerateContent")
 }
 
 var hopHeaders = map[string]bool{
@@ -80,6 +92,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	model := extractModel(body)
+	if model == "" {
+		model = modelFromPath(r.URL.Path) // Gemini puts the model in the path
+	}
 	redacted, counts, err := redact.RedactRequest(r.URL.Path, body)
 	if err != nil {
 		// Not a JSON request we can parse: forward unchanged, redact nothing.
@@ -112,7 +127,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	upstream := h.upstreamFor(r.URL.Path)
 	metrics.ObserveRequest(r.URL.Path, upstreamTag(r.URL.Path, h.Override != ""))
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstream+r.URL.Path, bytes.NewReader(redacted))
+	// RequestURI keeps the query string (Gemini ?key=, Azure ?api-version=).
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstream+r.URL.RequestURI(), bytes.NewReader(redacted))
 	if err != nil {
 		http.Error(w, "upstream request error", http.StatusInternalServerError)
 		return
@@ -142,13 +158,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // upstreamTag is a low-cardinality label for which upstream a path routes to.
 func upstreamTag(path string, override bool) string {
-	if override {
+	switch {
+	case override:
 		return "override"
-	}
-	if strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete") {
+	case strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete"):
 		return "anthropic"
+	case isGeminiPath(path):
+		return "google"
+	default:
+		return "openai"
 	}
-	return "openai"
 }
 
 // writeResponse redacts the upstream response (SSE or JSON) before relaying it.
@@ -212,4 +231,21 @@ func extractModel(body []byte) string {
 	}
 	_ = json.Unmarshal(body, &m)
 	return m.Model
+}
+
+// modelFromPath pulls the model out of a Gemini path like
+// /v1beta/models/gemini-1.5-pro:generateContent.
+func modelFromPath(path string) string {
+	i := strings.Index(path, "/models/")
+	if i < 0 {
+		return ""
+	}
+	seg := path[i+len("/models/"):]
+	if j := strings.IndexByte(seg, ':'); j >= 0 {
+		seg = seg[:j]
+	}
+	if j := strings.IndexByte(seg, '/'); j >= 0 {
+		seg = seg[:j]
+	}
+	return seg
 }

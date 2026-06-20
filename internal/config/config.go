@@ -13,6 +13,7 @@ type Config struct {
 	ListenAddr       string
 	AnthropicBaseURL string
 	OpenAIBaseURL    string
+	GoogleBaseURL    string
 	UpstreamBaseURL  string
 	UpstreamAPIKey   string
 	AuditLogPath     string
@@ -30,6 +31,7 @@ func defaults() Config {
 		ListenAddr:       ":8787",
 		AnthropicBaseURL: "https://api.anthropic.com",
 		OpenAIBaseURL:    "https://api.openai.com",
+		GoogleBaseURL:    "https://generativelanguage.googleapis.com",
 		AuditLogPath:     filepath.Join(Home(), "audit.jsonl"),
 		VaultPath:        filepath.Join(Home(), "vault.bin"),
 	}
@@ -71,6 +73,7 @@ func applyEnv(c *Config) {
 	setEnv(&c.ListenAddr, "SPHRAGIS_LISTEN_ADDR")
 	setEnv(&c.AnthropicBaseURL, "SPHRAGIS_ANTHROPIC_BASE_URL")
 	setEnv(&c.OpenAIBaseURL, "SPHRAGIS_OPENAI_BASE_URL")
+	setEnv(&c.GoogleBaseURL, "SPHRAGIS_GOOGLE_BASE_URL")
 	setEnv(&c.UpstreamBaseURL, "SPHRAGIS_UPSTREAM_BASE_URL")
 	setEnv(&c.UpstreamAPIKey, "SPHRAGIS_UPSTREAM_API_KEY")
 	setEnv(&c.AuditLogPath, "SPHRAGIS_AUDIT_LOG_PATH")
@@ -118,6 +121,7 @@ func applyFile(c *Config, path string) error {
 		"listen_addr":        &c.ListenAddr,
 		"anthropic_base_url": &c.AnthropicBaseURL,
 		"openai_base_url":    &c.OpenAIBaseURL,
+		"google_base_url":    &c.GoogleBaseURL,
 		"upstream_base_url":  &c.UpstreamBaseURL,
 		"upstream_api_key":   &c.UpstreamAPIKey,
 		"audit_log_path":     &c.AuditLogPath,

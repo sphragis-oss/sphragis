@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Google Gemini support. The gateway redacts the Gemini `generateContent` /
+  `streamGenerateContent` format (request `contents[].parts[].text`,
+  `systemInstruction`, and tool call/response args; response and SSE
+  `candidates[].content.parts[].text`) and routes `/v1beta/...` paths to
+  `SPHRAGIS_GOOGLE_BASE_URL` (default
+  `https://generativelanguage.googleapis.com`).
+- Azure OpenAI and Ollama now work through the gateway: both speak the OpenAI
+  wire format, so point `SPHRAGIS_UPSTREAM_BASE_URL` at the Azure resource or
+  Ollama and existing redaction applies.
 - Supply-chain hardening for releases. Each release now carries keyless cosign
   signatures over the checksums and the container image, an SBOM (`*.sbom.json`,
   via syft) per archive, and SLSA build-provenance attestations for both the
@@ -16,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verify`). See "Verifying releases" in the README.
 - CI now runs the redaction fuzz target (`FuzzRedact`) on every push and pull
   request.
+
+### Changed
+
+- The upstream request now forwards the full request URI including the query
+  string, so Gemini's `?key=` and Azure's `?api-version=` reach the provider.
 
 ## [0.4.6] - 2026-06-20
 

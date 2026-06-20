@@ -178,12 +178,27 @@ Messages API, so Claude Code and the Anthropic SDKs run through it unchanged.
 | `/v1/complete` | Anthropic legacy Text Completions | legacy Claude clients |
 | `/v1/chat/completions` | OpenAI chat completions | OpenAI SDKs, Cursor, LangChain |
 | `/v1/responses` | OpenAI Responses API | Codex CLI |
+| `/v1beta/models/*:generateContent` | Google Gemini (generate + stream) | Gemini SDKs, LangChain |
+| `/openai/deployments/*/chat/completions` | Azure OpenAI (OpenAI format) | Azure OpenAI SDKs |
+
+The gateway routes by path to the right upstream: Anthropic paths to
+`SPHRAGIS_ANTHROPIC_BASE_URL`, Gemini paths to `SPHRAGIS_GOOGLE_BASE_URL`, and the
+rest to `SPHRAGIS_OPENAI_BASE_URL` (`SPHRAGIS_UPSTREAM_BASE_URL` overrides all).
+The full request URI, including the query string, is forwarded, so Gemini's
+`?key=` and Azure's `?api-version=` reach the provider.
 
 Point each client at the gateway:
 
 - **Claude Code** (and the Anthropic SDKs): `ANTHROPIC_BASE_URL=http://localhost:8787`
 - Codex: `OPENAI_BASE_URL=http://localhost:8787/v1`
 - OpenAI SDKs: base URL `http://localhost:8787/v1`
+- Gemini SDKs: base URL `http://localhost:8787`
+- **Azure OpenAI**: set `SPHRAGIS_UPSTREAM_BASE_URL` to your `https://<resource>.openai.azure.com`
+  endpoint and point the SDK's base URL at the gateway. The body is the OpenAI
+  format, so redaction works as-is.
+- **Ollama**: run it through its OpenAI-compatible endpoint by pointing
+  `SPHRAGIS_UPSTREAM_BASE_URL` at `http://localhost:11434` and the client at the
+  gateway's `/v1`.
 
 Both string and structured bodies are handled, including Anthropic `document`
 blocks, `tool_use` inputs and `tool_result` content. Signed `thinking` blocks are
@@ -263,7 +278,10 @@ Override the calendars with `SPHRAGIS_OTS_CALENDARS` (comma-separated).
 | Env var | Default | Purpose |
 |---|---|---|
 | `SPHRAGIS_LISTEN_ADDR` | `:8787` | Address the gateway listens on |
-| `SPHRAGIS_UPSTREAM_BASE_URL` | `https://api.openai.com` | Upstream LLM provider base URL |
+| `SPHRAGIS_UPSTREAM_BASE_URL` | `https://api.openai.com` | Override: route every request here (e.g. Azure, Ollama) |
+| `SPHRAGIS_OPENAI_BASE_URL` | `https://api.openai.com` | Upstream for OpenAI-format paths |
+| `SPHRAGIS_ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Upstream for Anthropic paths |
+| `SPHRAGIS_GOOGLE_BASE_URL` | `https://generativelanguage.googleapis.com` | Upstream for Gemini paths |
 | `SPHRAGIS_UPSTREAM_API_KEY` | (none) | Provider key; if unset, the client's `Authorization` header is forwarded |
 | `SPHRAGIS_AUDIT_LOG_PATH` | `~/.sphragis/audit.jsonl` | Append-only audit log path |
 | `SPHRAGIS_HOME` | `~/.sphragis` | State directory (pid, logs, default audit log) |
@@ -287,6 +305,7 @@ override defaults.
 listen_addr: ":8787"
 anthropic_base_url: "https://api.anthropic.com"
 openai_base_url: "https://api.openai.com"
+google_base_url: "https://generativelanguage.googleapis.com"
 audit_log_path: "~/.sphragis/audit.jsonl"
 ner_url: ""
 eu_pack: false

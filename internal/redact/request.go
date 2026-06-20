@@ -15,6 +15,8 @@ func RedactRequest(path string, body []byte) ([]byte, map[Kind]int, error) {
 	}
 	total := map[Kind]int{}
 	switch {
+	case isGeminiPath(path):
+		redactGemini(req, total)
 	case strings.Contains(path, "/chat/completions"):
 		redactMessages(req, total)
 	case strings.Contains(path, "/responses"):

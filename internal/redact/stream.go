@@ -16,6 +16,7 @@ const (
 	formatOther streamFormat = iota
 	formatAnthropic
 	formatOpenAIChat
+	formatGemini
 )
 
 // streamFormatFor classifies a request path; only Anthropic Messages and OpenAI
@@ -26,6 +27,8 @@ func streamFormatFor(path string) streamFormat {
 		return formatOpenAIChat
 	case strings.Contains(path, "/messages"):
 		return formatAnthropic
+	case isGeminiPath(path):
+		return formatGemini
 	default:
 		return formatOther
 	}
@@ -134,9 +137,44 @@ func (s *StreamRedactor) transform(obj map[string]any) bool {
 		return s.transformAnthropic(obj)
 	case formatOpenAIChat:
 		return s.transformOpenAIChat(obj)
+	case formatGemini:
+		return s.transformGemini(obj)
 	default:
 		return s.redactEventInPlace(obj)
 	}
+}
+
+// transformGemini redacts candidates[].content.parts[].text per event; numbering
+// stays stable across the stream via the shared seen map.
+func (s *StreamRedactor) transformGemini(obj map[string]any) bool {
+	cands, ok := obj["candidates"].([]any)
+	if !ok {
+		return false
+	}
+	changed := false
+	for _, c := range cands {
+		cm, ok := c.(map[string]any)
+		if !ok {
+			continue
+		}
+		content, ok := cm["content"].(map[string]any)
+		if !ok {
+			continue
+		}
+		parts, ok := content["parts"].([]any)
+		if !ok {
+			continue
+		}
+		for _, p := range parts {
+			if pm, ok := p.(map[string]any); ok {
+				if txt, ok := pm["text"].(string); ok {
+					pm["text"] = s.redactStateful(txt)
+					changed = true
+				}
+			}
+		}
+	}
+	return changed
 }
 
 func (s *StreamRedactor) transformAnthropic(obj map[string]any) bool {

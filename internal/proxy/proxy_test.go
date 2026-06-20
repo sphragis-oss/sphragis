@@ -126,6 +126,48 @@ func TestProxyRoutesByPath(t *testing.T) {
 	}
 }
 
+func TestProxyRoutesGemini(t *testing.T) {
+	var hitGoogle bool
+	var gotQuery, gotBody string
+	google := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hitGoogle = true
+		gotQuery = r.URL.RawQuery
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer google.Close()
+	openai := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("gemini request must not hit the OpenAI upstream")
+		w.Write([]byte(`{}`))
+	}))
+	defer openai.Close()
+
+	logPath := filepath.Join(t.TempDir(), "a.jsonl")
+	lg, _ := audit.Open(logPath)
+	defer lg.Close()
+	h := proxy.New(openai.URL, openai.URL, "", "", lg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h.Google = google.URL
+
+	body := `{"contents":[{"role":"user","parts":[{"text":"mail a@b.com"}]}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-1.5-pro:generateContent?key=SECRET", strings.NewReader(body))
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	if !hitGoogle {
+		t.Fatal("gemini path not routed to the Google upstream")
+	}
+	if gotQuery != "key=SECRET" {
+		t.Fatalf("query string not forwarded upstream: %q", gotQuery)
+	}
+	if strings.Contains(gotBody, "a@b.com") || !strings.Contains(gotBody, "[EMAIL_1]") {
+		t.Fatalf("gemini body not redacted: %s", gotBody)
+	}
+	if recs, _ := audit.Recent(logPath, 1); len(recs) != 1 || recs[0].Model != "gemini-1.5-pro" {
+		t.Fatalf("model not taken from path: %+v", recs)
+	}
+}
+
 func TestProxyForwardsAnthropicAuthHeaders(t *testing.T) {
 	var apiKey, ver string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

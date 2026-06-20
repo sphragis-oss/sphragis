@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -78,8 +79,13 @@ func serve(logger *slog.Logger) error {
 	}
 	defer log.Close()
 
+	px := proxy.New(cfg.AnthropicBaseURL, cfg.OpenAIBaseURL, cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger)
+	px.Google = strings.TrimRight(cfg.GoogleBaseURL, "/")
+
 	mux := http.NewServeMux()
-	mux.Handle("/v1/", proxy.New(cfg.AnthropicBaseURL, cfg.OpenAIBaseURL, cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger))
+	mux.Handle("/v1/", px)     // OpenAI, Anthropic, Ollama (OpenAI-compatible)
+	mux.Handle("/v1beta/", px) // Google Gemini
+	mux.Handle("/openai/", px) // Azure OpenAI
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	mux.Handle("/metrics", metrics.Handler())
 	// preview redactor has no vault, so the playground never mutates state
