@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-20
+
 ### Added
 
 - Google Gemini support. The gateway redacts the Gemini `generateContent` /
@@ -185,7 +187,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency: `github.com/nbd-wtf/opentimestamps` for Merkle-root anchoring.
 - Apache 2.0 licensed, SPDX headers on all source files.
 
-[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/sphragis-oss/sphragis/compare/v0.4.6...v0.5.0
 [0.4.6]: https://github.com/sphragis-oss/sphragis/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/sphragis-oss/sphragis/compare/v0.4.0...v0.4.5
 [0.4.0]: https://github.com/sphragis-oss/sphragis/compare/v0.3.0...v0.4.0
