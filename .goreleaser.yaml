@@ -78,6 +78,31 @@ docker_manifests:
 checksum:
   name_template: checksums.txt
 
+sboms:
+  - id: archive
+    artifacts: archive
+
+# keyless (OIDC) cosign signing; needs cosign on PATH and id-token: write in CI
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    output: true
+    args:
+      - sign-blob
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+
+docker_signs:
+  - cmd: cosign
+    artifacts: all
+    output: true
+    args:
+      - sign
+      - "${artifact}@${digest}"
+      - "--yes"
+
 homebrew_casks:
   - name: sphragis
     binaries:

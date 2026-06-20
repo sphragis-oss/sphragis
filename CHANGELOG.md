@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Supply-chain hardening for releases. Each release now carries keyless cosign
+  signatures over the checksums and the container image, an SBOM (`*.sbom.json`,
+  via syft) per archive, and SLSA build-provenance attestations for both the
+  binaries and the image (verifiable with `cosign verify` / `gh attestation
+  verify`). See "Verifying releases" in the README.
+- CI now runs the redaction fuzz target (`FuzzRedact`) on every push and pull
+  request.
+
 ## [0.4.6] - 2026-06-20
 
 ### Added

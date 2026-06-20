@@ -333,6 +333,31 @@ assets:
 The UI binds to the same address as the gateway, so keep `SPHRAGIS_LISTEN_ADDR`
 on localhost (or behind your own auth) if the log metadata is sensitive.
 
+## Verifying releases
+
+Every release is built by GoReleaser in GitHub Actions and comes with
+supply-chain evidence: a keyless [cosign](https://github.com/sigstore/cosign)
+signature over the checksums and the container image, a software bill of
+materials (`*.sbom.json`) per archive, and [SLSA build
+provenance](https://slsa.dev/) attestations for both the binaries and the image.
+
+```bash
+# checksums signature (keyless cosign)
+cosign verify-blob checksums.txt \
+  --certificate checksums.txt.pem --signature checksums.txt.sig \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/sphragis-oss/sphragis/.*'
+
+# container image signature
+cosign verify ghcr.io/sphragis-oss/sphragis:<version> \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/sphragis-oss/sphragis/.*'
+
+# SLSA build provenance, via the GitHub CLI
+gh attestation verify sphragis_linux_amd64.tar.gz --repo sphragis-oss/sphragis
+gh attestation verify oci://ghcr.io/sphragis-oss/sphragis:<version> --repo sphragis-oss/sphragis
+```
+
 ## Project status
 
 Sphragis is open source under Apache 2.0 and built in the open. Contributions,
