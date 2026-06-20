@@ -361,9 +361,9 @@ materials (`*.sbom.json`) per archive, and [SLSA build
 provenance](https://slsa.dev/) attestations for both the binaries and the image.
 
 ```bash
-# checksums signature (keyless cosign)
+# checksums signature (keyless cosign, bundle format)
 cosign verify-blob checksums.txt \
-  --certificate checksums.txt.pem --signature checksums.txt.sig \
+  --bundle checksums.txt.bundle \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp '^https://github.com/sphragis-oss/sphragis/.*'
 

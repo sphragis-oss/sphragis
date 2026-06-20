@@ -82,15 +82,16 @@ sboms:
   - id: archive
     artifacts: archive
 
-# keyless (OIDC) cosign signing; needs cosign on PATH and id-token: write in CI
+# keyless (OIDC) cosign signing; needs cosign on PATH and id-token: write in CI.
+# cosign v2+ emits a single bundle (signature + certificate); verify with --bundle.
 signs:
   - cmd: cosign
     artifacts: checksum
     output: true
+    signature: "${artifact}.bundle"
     args:
       - sign-blob
-      - "--output-signature=${signature}"
-      - "--output-certificate=${certificate}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - "--yes"
 
