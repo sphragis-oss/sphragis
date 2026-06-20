@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-06-20
+
 ### Added
 
 - Opt-in EU PII pack (`SPHRAGIS_EU_PACK=true` or `eu_pack: true`). Adds
@@ -142,7 +144,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency: `github.com/nbd-wtf/opentimestamps` for Merkle-root anchoring.
 - Apache 2.0 licensed, SPDX headers on all source files.
 
-[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/sphragis-oss/sphragis/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/sphragis-oss/sphragis/compare/v0.4.0...v0.4.5
 [0.4.0]: https://github.com/sphragis-oss/sphragis/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sphragis-oss/sphragis/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sphragis-oss/sphragis/compare/v0.1.1...v0.2.0
