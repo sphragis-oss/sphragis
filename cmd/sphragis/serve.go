@@ -85,6 +85,12 @@ func serve(logger *slog.Logger) error {
 	px := proxy.New(cfg.AnthropicBaseURL, cfg.OpenAIBaseURL, cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger)
 	px.Google = strings.TrimRight(cfg.GoogleBaseURL, "/")
 	px.Autodetect = cfg.RouteAutodetect
+	px.AutoReveal = cfg.AutoReveal && redact.VaultEnabled()
+	if cfg.AutoReveal && !redact.VaultEnabled() {
+		logger.Warn("auto-reveal requested but no vault key set; responses will not be re-identified")
+	} else if px.AutoReveal {
+		logger.Info("auto-reveal enabled; responses re-identified before relay")
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/", px)     // OpenAI, Anthropic, Ollama (OpenAI-compatible)
