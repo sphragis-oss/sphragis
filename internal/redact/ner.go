@@ -7,9 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
+
+// nerTokenRe matches an already-emitted redaction token so NER never rewrites one.
+var nerTokenRe = regexp.MustCompile(`\[[A-Z][A-Z_]*_\d+\]`)
 
 type nerClient struct {
 	url  string
@@ -64,18 +69,49 @@ func (n *nerClient) redact(r *Redactor, s string, counts map[Kind]int, seen map[
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return s
 	}
-	for _, e := range out.Entities {
+	return replaceEntities(r, s, out.Entities, counts, seen)
+}
+
+// replaceEntities tokenizes NER entities longest-first, only inside plain-text spans, leaving existing tokens intact.
+func replaceEntities(r *Redactor, s string, entities []nerEntity, counts map[Kind]int, seen map[Kind]map[string]int) string {
+	kindOf := map[string]Kind{}
+	var texts []string
+	for _, e := range entities {
 		if e.Text == "" {
 			continue
 		}
-		c := strings.Count(s, e.Text)
-		if c == 0 {
+		if _, dup := kindOf[e.Text]; dup {
 			continue
 		}
-		k := nerKind(e.Type)
-		tok := r.assign(k, e.Text, seen)
-		counts[k] += c
-		s = strings.ReplaceAll(s, e.Text, "["+tok+"]")
+		kindOf[e.Text] = nerKind(e.Type)
+		texts = append(texts, e.Text)
 	}
-	return s
+	if len(texts) == 0 {
+		return s
+	}
+	// longest first so "Maria Papadopoulou" wins over its substring "Maria"
+	sort.SliceStable(texts, func(i, j int) bool { return len(texts[i]) > len(texts[j]) })
+	quoted := make([]string, len(texts))
+	for i, t := range texts {
+		quoted[i] = regexp.QuoteMeta(t)
+	}
+	re := regexp.MustCompile(strings.Join(quoted, "|"))
+
+	var b strings.Builder
+	last := 0
+	for _, span := range nerTokenRe.FindAllStringIndex(s, -1) {
+		b.WriteString(replacePlain(r, s[last:span[0]], re, kindOf, counts, seen))
+		b.WriteString(s[span[0]:span[1]]) // copy an existing token through untouched
+		last = span[1]
+	}
+	b.WriteString(replacePlain(r, s[last:], re, kindOf, counts, seen))
+	return b.String()
+}
+
+func replacePlain(r *Redactor, s string, re *regexp.Regexp, kindOf map[string]Kind, counts map[Kind]int, seen map[Kind]map[string]int) string {
+	return re.ReplaceAllStringFunc(s, func(m string) string {
+		k := kindOf[m]
+		counts[k]++
+		return "[" + r.assign(k, m, seen) + "]"
+	})
 }

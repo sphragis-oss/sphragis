@@ -30,6 +30,7 @@ type Vault struct {
 	fwd     map[string]string // "EMAIL_1" -> original
 	rev     map[string]string // kind\x00value -> "EMAIL_1"
 	counter map[string]int    // kind -> last assigned n
+	dirty   bool              // unsaved assignments pending Flush
 }
 
 // Open loads and decrypts an existing vault, or starts an empty one at path.
@@ -96,8 +97,22 @@ func (v *Vault) Assign(kind, value string) string {
 	tok := kind + "_" + strconv.Itoa(v.counter[kind])
 	v.fwd[tok] = value
 	v.rev[rk] = tok
-	_ = v.flush()
+	v.dirty = true
 	return tok
+}
+
+// Flush seals and persists the vault if assignments are pending; safe to call often.
+func (v *Vault) Flush() error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if !v.dirty {
+		return nil
+	}
+	if err := v.flush(); err != nil {
+		return err
+	}
+	v.dirty = false
+	return nil
 }
 
 // Reveal replaces [KIND_n] tokens with their originals where known.

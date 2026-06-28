@@ -34,6 +34,31 @@ func TestNERDetector(t *testing.T) {
 	}
 }
 
+func TestNEROverlappingEntitiesAndTokenSafety(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{"entities": []map[string]string{
+			{"type": "PERSON", "text": "Maria"},
+			{"type": "PERSON", "text": "Maria Papadopoulou"},
+			{"type": "MISC", "text": "1"}, // would corrupt [EMAIL_1] under naive replace
+		}}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	r := New(nil)
+	r.SetNER(srv.URL)
+	res := r.Redact("Maria Papadopoulou wrote to a@b.com")
+	if strings.Contains(res.Text, "Papadopoulou") {
+		t.Fatalf("substring leak: %q", res.Text)
+	}
+	if !strings.Contains(res.Text, "[EMAIL_1]") {
+		t.Fatalf("existing token corrupted: %q", res.Text)
+	}
+	if res.Counts[Name] != 1 {
+		t.Fatalf("want name=1, got %v", res.Counts)
+	}
+}
+
 func TestNERFailOpen(t *testing.T) {
 	r := New(nil)
 	r.SetNER("http://127.0.0.1:1")
