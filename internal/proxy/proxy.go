@@ -20,14 +20,15 @@ import (
 )
 
 type Handler struct {
-	Anthropic string
-	OpenAI    string
-	Google    string
-	Override  string
-	APIKey    string
-	Log       *audit.Log
-	Logger    *slog.Logger
-	Client    *http.Client
+	Anthropic  string
+	OpenAI     string
+	Google     string
+	Override   string
+	APIKey     string
+	Autodetect bool // use auth headers, query key, and model name to route, not just the path
+	Log        *audit.Log
+	Logger     *slog.Logger
+	Client     *http.Client
 }
 
 func New(anthropic, openai, override, apiKey string, log *audit.Log, logger *slog.Logger) *Handler {
@@ -42,17 +43,41 @@ func New(anthropic, openai, override, apiKey string, log *audit.Log, logger *slo
 	}
 }
 
-// upstreamFor routes by request path to Anthropic, Google (Gemini), or OpenAI.
-func (h *Handler) upstreamFor(path string) string {
+// provider resolves the target LLM from the path, plus auth headers, query key, and model name when autodetect is on.
+func provider(r *http.Request, model string, autodetect bool) string {
+	path := r.URL.Path
 	switch {
-	case h.Override != "":
-		return h.Override
-	case strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete"):
-		return h.Anthropic
-	case isGeminiPath(path) && h.Google != "":
-		return h.Google
+	case isGeminiPath(path):
+		return "google"
+	case strings.HasPrefix(path, "/v1/messages"), strings.HasPrefix(path, "/v1/complete"):
+		return "anthropic"
+	}
+	if autodetect {
+		switch {
+		case r.Header.Get("x-goog-api-key") != "", r.URL.Query().Get("key") != "", strings.HasPrefix(model, "gemini"):
+			return "google"
+		case r.Header.Get("anthropic-version") != "", strings.HasPrefix(model, "claude"):
+			return "anthropic"
+		}
+	}
+	return "openai"
+}
+
+// route resolves the upstream base URL and a metrics tag for a request.
+func (h *Handler) route(r *http.Request, model string) (upstream, tag string) {
+	if h.Override != "" {
+		return h.Override, "override"
+	}
+	switch provider(r, model, h.Autodetect) {
+	case "google":
+		if h.Google != "" {
+			return h.Google, "google"
+		}
+		return h.OpenAI, "openai"
+	case "anthropic":
+		return h.Anthropic, "anthropic"
 	default:
-		return h.OpenAI
+		return h.OpenAI, "openai"
 	}
 }
 
@@ -100,6 +125,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		redacted = body
 		counts = map[redact.Kind]int{}
 	}
+	redact.FlushVault() // persist this request's token assignments once, not per token
 	cc := make(map[string]int, len(counts))
 	for k, v := range counts {
 		cc[string(k)] = v
@@ -124,8 +150,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	upstream := h.upstreamFor(r.URL.Path)
-	metrics.ObserveRequest(r.URL.Path, upstreamTag(r.URL.Path, h.Override != ""))
+	upstream, tag := h.route(r, model)
+	metrics.ObserveRequest(r.URL.Path, tag)
 	// RequestURI keeps the query string (Gemini ?key=, Azure ?api-version=).
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstream+r.URL.RequestURI(), bytes.NewReader(redacted))
 	if err != nil {
@@ -155,20 +181,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.writeResponse(w, resp, r.URL.Path)
 }
 
-// upstreamTag is a low-cardinality label for which upstream a path routes to.
-func upstreamTag(path string, override bool) string {
-	switch {
-	case override:
-		return "override"
-	case strings.HasPrefix(path, "/v1/messages") || strings.HasPrefix(path, "/v1/complete"):
-		return "anthropic"
-	case isGeminiPath(path):
-		return "google"
-	default:
-		return "openai"
-	}
-}
-
 // writeResponse redacts the upstream response (SSE or JSON) before relaying it.
 func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path string) {
 	ct := resp.Header.Get("Content-Type")
@@ -183,6 +195,7 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 		}
 		sr := redact.NewStreamRedactor(path)
 		sr.Process(w, flush, resp.Body)
+		redact.FlushVault()
 		metrics.ObserveRedactions("response", sr.Counts())
 		return
 	}
@@ -195,6 +208,7 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 		}
 		if red, counts, rerr := redact.RedactResponse(path, body); rerr == nil {
 			body = red
+			redact.FlushVault()
 			metrics.ObserveRedactions("response", kindCounts(counts))
 		}
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))

@@ -119,6 +119,13 @@ func (r *Redactor) SetVault(v *vault.Vault) { r.vault = v }
 // ConfigureVault enables the reversible-tokenization vault on the default redactor.
 func ConfigureVault(v *vault.Vault) { defaultRedactor.SetVault(v) }
 
+// FlushVault persists pending default-redactor vault assignments; no-op without a vault.
+func FlushVault() {
+	if defaultRedactor.vault != nil {
+		_ = defaultRedactor.vault.Flush()
+	}
+}
+
 // assign returns the bare token (e.g. "EMAIL_1") for a value. With a vault,
 // numbering is gateway-global and the original is recorded; otherwise it is
 // per-field and ephemeral.

@@ -252,14 +252,21 @@ func (s *StreamRedactor) redactEventInPlace(obj map[string]any) bool {
 	return changed
 }
 
-// feedText appends to the carry buffer and returns the redaction of the now-safe prefix.
+// streamMinTail covers the longest whitespace-bearing PII pattern (IBAN/card/phone).
+const streamMinTail = 64
+
+// feedText flushes up to the last whitespace outside the reserved tail so a long line need not be held whole.
 func (s *StreamRedactor) feedText(t string) string {
 	s.carry += t
 	c := s.carry
 	if strings.Count(c, "-----BEGIN") > strings.Count(c, "-----END") {
 		return "" // hold an unterminated PEM block until it closes
 	}
-	i := strings.LastIndexByte(c, '\n')
+	limit := len(c) - streamMinTail
+	if limit <= 0 {
+		return ""
+	}
+	i := strings.LastIndexAny(c[:limit], " \t\r\n")
 	if i < 0 {
 		return ""
 	}

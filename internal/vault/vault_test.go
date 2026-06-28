@@ -26,6 +26,9 @@ func TestVaultRoundTripAndPersistence(t *testing.T) {
 	if again := v.Assign("EMAIL", "john@x.com"); again != "EMAIL_1" {
 		t.Fatalf("dedupe failed: %q", again)
 	}
+	if err := v.Flush(); err != nil {
+		t.Fatal(err)
+	}
 
 	// Reopen from disk: mapping and counter survive, numbering continues.
 	v2, err := Open(path, key)
@@ -48,6 +51,9 @@ func TestVaultWrongKeyFails(t *testing.T) {
 	k2[0] = 1
 	v, _ := Open(path, k1)
 	v.Assign("EMAIL", "john@x.com")
+	if err := v.Flush(); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Open(path, k2); err == nil {
 		t.Fatal("expected decryption failure with wrong key")
 	}

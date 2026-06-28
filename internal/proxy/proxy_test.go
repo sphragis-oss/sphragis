@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/sphragis-oss/sphragis/internal/audit"
 	"github.com/sphragis-oss/sphragis/internal/proxy"
@@ -123,6 +125,112 @@ func TestProxyRoutesByPath(t *testing.T) {
 		if got != c.want {
 			t.Fatalf("%s routed to %q, want %q", c.path, got, c.want)
 		}
+	}
+}
+
+func TestStreamDeliversBeforeUpstreamFinishes(t *testing.T) {
+	// Upstream streams a long no-newline paragraph, then pauses before the terminal event.
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fl := w.(http.Flusher)
+		words := strings.Fields("the quarterly figures were sent to joe@acme.com along with a very long unbroken paragraph that keeps going without any newline characters at all so the old redactor would have buffered the entire thing")
+		for _, word := range words {
+			ev := `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"` + word + ` "}}`
+			io.WriteString(w, "event: content_block_delta\ndata: "+ev+"\n\n")
+			fl.Flush()
+		}
+		time.Sleep(400 * time.Millisecond) // hold the terminal event
+		io.WriteString(w, "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n")
+		fl.Flush()
+	}))
+	defer upstream.Close()
+
+	lg, _ := audit.Open(filepath.Join(t.TempDir(), "a.jsonl"))
+	defer lg.Close()
+	h := proxy.New(upstream.URL, upstream.URL, "", "", lg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gw := httptest.NewServer(h)
+	defer gw.Close()
+
+	body := `{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}`
+	resp, err := http.Post(gw.URL+"/v1/messages", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	var mu sync.Mutex
+	var got []byte
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := resp.Body.Read(buf)
+			mu.Lock()
+			got = append(got, buf[:n]...)
+			mu.Unlock()
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	time.Sleep(200 * time.Millisecond) // snapshot mid-pause, before the terminal event is sent
+	mu.Lock()
+	early := string(got)
+	mu.Unlock()
+
+	if !strings.Contains(early, "[EMAIL_1]") {
+		t.Fatalf("redacted text not delivered before upstream finished (held back): %q", early)
+	}
+	if strings.Contains(early, "joe@acme.com") {
+		t.Fatalf("raw email leaked into the stream: %q", early)
+	}
+	if !strings.Contains(early, "quarterly") {
+		t.Fatalf("paragraph body not streamed early: %q", early)
+	}
+}
+
+func TestProxyAutodetectsSharedModelsPath(t *testing.T) {
+	hit := func(name string, dst *string) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			*dst = name
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"ok":true}`))
+		}))
+	}
+	var got string
+	oai := hit("openai", &got)
+	defer oai.Close()
+	google := hit("google", &got)
+	defer google.Close()
+
+	lg, _ := audit.Open(filepath.Join(t.TempDir(), "a.jsonl"))
+	defer lg.Close()
+	h := proxy.New(oai.URL, oai.URL, "", "", lg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h.Google = google.URL
+	h.Autodetect = true
+
+	// Plain /v1/models has no Gemini signal: stays on OpenAI.
+	got = ""
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/v1/models", nil))
+	if got != "openai" {
+		t.Fatalf("plain /v1/models routed to %q, want openai", got)
+	}
+
+	// Same path with a Gemini API-key header autodetects Google.
+	got = ""
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	req.Header.Set("x-goog-api-key", "SECRET")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if got != "google" {
+		t.Fatalf("gemini-signalled /v1/models routed to %q, want google", got)
+	}
+
+	// And with the ?key= query Gemini uses.
+	got = ""
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/v1/models?key=SECRET", nil))
+	if got != "google" {
+		t.Fatalf("?key= /v1/models routed to %q, want google", got)
 	}
 }
 

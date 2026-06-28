@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-28
+
+### Added
+
+- Configurable upstream auto-detection. The gateway now resolves the target
+  provider from auth headers (`x-goog-api-key`, `anthropic-version`), the Gemini
+  `?key=` query, and the request's model name, in addition to the path. This
+  routes shared paths like `/v1/models` to the right backend (previously they
+  always fell through to OpenAI). Enabled by default; disable for path-only
+  routing with `SPHRAGIS_ROUTE_AUTODETECT=false` or `route_autodetect: false`.
+
+### Fixed
+
+- NER redaction could leak PII. Overlapping entities (e.g. `Maria` and
+  `Maria Papadopoulou`) and substring matches inside already-emitted tokens
+  could leave text exposed or corrupt a token. Entities are now tokenized
+  longest-first and only within plain-text spans, never rewriting an existing
+  `[KIND_n]` token.
+- Vault persistence rewrote the entire sealed database on every token
+  assignment (O(N^2) I/O on large requests). Assignments are now batched and
+  flushed once per request.
+- Streaming responses were buffered until a newline, stalling long outputs that
+  contained none. The stream redactor now flushes at the last whitespace
+  boundary outside a reserved tail, so long lines stream incrementally without
+  splitting a value across chunks.
+
 ## [0.5.1] - 2026-06-20
 
 ### Added

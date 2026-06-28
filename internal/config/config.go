@@ -24,6 +24,7 @@ type Config struct {
 	VaultPath        string
 	EUPack           bool
 	BuiltinNER       bool
+	RouteAutodetect  bool
 }
 
 // defaults returns the baseline config before file and env layering.
@@ -35,6 +36,7 @@ func defaults() Config {
 		GoogleBaseURL:    "https://generativelanguage.googleapis.com",
 		AuditLogPath:     filepath.Join(Home(), "audit.jsonl"),
 		VaultPath:        filepath.Join(Home(), "vault.bin"),
+		RouteAutodetect:  true,
 	}
 }
 
@@ -91,6 +93,9 @@ func applyEnv(c *Config) {
 	if v := os.Getenv("SPHRAGIS_NER_BUILTIN"); v != "" {
 		c.BuiltinNER = truthy(v)
 	}
+	if v := os.Getenv("SPHRAGIS_ROUTE_AUTODETECT"); v != "" {
+		c.RouteAutodetect = truthy(v)
+	}
 }
 
 // truthy parses a boolean-ish string ("true", "1", "yes", "on").
@@ -141,6 +146,8 @@ func applyFile(c *Config, path string) error {
 			c.EUPack = truthy(v)
 		} else if k == "ner_builtin" {
 			c.BuiltinNER = truthy(v)
+		} else if k == "route_autodetect" {
+			c.RouteAutodetect = truthy(v)
 		} else if k != "ots_calendars" {
 			return fmt.Errorf("unknown key %q", k)
 		}

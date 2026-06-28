@@ -84,6 +84,7 @@ func serve(logger *slog.Logger) error {
 
 	px := proxy.New(cfg.AnthropicBaseURL, cfg.OpenAIBaseURL, cfg.UpstreamBaseURL, cfg.UpstreamAPIKey, log, logger)
 	px.Google = strings.TrimRight(cfg.GoogleBaseURL, "/")
+	px.Autodetect = cfg.RouteAutodetect
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/", px)     // OpenAI, Anthropic, Ollama (OpenAI-compatible)
