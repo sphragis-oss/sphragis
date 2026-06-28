@@ -46,7 +46,11 @@ type StreamRedactor struct {
 
 	carry     string
 	flushTmpl func(text string) (name string, data []byte)
+	reveal    bool
 }
+
+// SetReveal makes emitted text re-identify [KIND_n] tokens from the vault (auto-reveal mode).
+func (s *StreamRedactor) SetReveal(on bool) { s.reveal = on }
 
 // NewStreamRedactor builds a stream redactor for the default redactor and path.
 func NewStreamRedactor(path string) *StreamRedactor {
@@ -71,6 +75,9 @@ func (s *StreamRedactor) Counts() map[string]int {
 func (s *StreamRedactor) redactStateful(text string) string {
 	for _, d := range s.r.detectors {
 		text = d.apply(s.r, text, s.counts, s.seen)
+	}
+	if s.reveal && s.r.vault != nil {
+		text = s.r.vault.Reveal(text)
 	}
 	return text
 }

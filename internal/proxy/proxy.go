@@ -26,6 +26,7 @@ type Handler struct {
 	Override   string
 	APIKey     string
 	Autodetect bool // use auth headers, query key, and model name to route, not just the path
+	AutoReveal bool // re-identify [KIND_n] tokens in responses before relaying to the client
 	Log        *audit.Log
 	Logger     *slog.Logger
 	Client     *http.Client
@@ -194,6 +195,7 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 			flush = fl.Flush
 		}
 		sr := redact.NewStreamRedactor(path)
+		sr.SetReveal(h.AutoReveal)
 		sr.Process(w, flush, resp.Body)
 		redact.FlushVault()
 		metrics.ObserveRedactions("response", sr.Counts())
@@ -210,6 +212,11 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 			body = red
 			redact.FlushVault()
 			metrics.ObserveRedactions("response", kindCounts(counts))
+		}
+		if h.AutoReveal {
+			if rev, rerr := redact.RevealResponse(body); rerr == nil {
+				body = rev
+			}
 		}
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 		w.WriteHeader(resp.StatusCode)

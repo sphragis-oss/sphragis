@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Auto-reveal proxy mode. With a vault and `SPHRAGIS_AUTO_REVEAL=true` (or
+  `auto_reveal: true`), the gateway restores `[KIND_n]` tokens to their original
+  values in the response (JSON and SSE) before relaying to the client, so client
+  apps get coherent text with zero code. Off by default and ignored without a
+  vault key. The audit log still records the redacted payload hash. (#3)
+
 ## [0.6.0] - 2026-06-28
 
 ### Added

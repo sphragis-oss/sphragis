@@ -25,6 +25,7 @@ type Config struct {
 	EUPack           bool
 	BuiltinNER       bool
 	RouteAutodetect  bool
+	AutoReveal       bool
 }
 
 // defaults returns the baseline config before file and env layering.
@@ -96,6 +97,9 @@ func applyEnv(c *Config) {
 	if v := os.Getenv("SPHRAGIS_ROUTE_AUTODETECT"); v != "" {
 		c.RouteAutodetect = truthy(v)
 	}
+	if v := os.Getenv("SPHRAGIS_AUTO_REVEAL"); v != "" {
+		c.AutoReveal = truthy(v)
+	}
 }
 
 // truthy parses a boolean-ish string ("true", "1", "yes", "on").
@@ -148,6 +152,8 @@ func applyFile(c *Config, path string) error {
 			c.BuiltinNER = truthy(v)
 		} else if k == "route_autodetect" {
 			c.RouteAutodetect = truthy(v)
+		} else if k == "auto_reveal" {
+			c.AutoReveal = truthy(v)
 		} else if k != "ots_calendars" {
 			return fmt.Errorf("unknown key %q", k)
 		}

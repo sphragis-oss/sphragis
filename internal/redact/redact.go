@@ -126,6 +126,9 @@ func FlushVault() {
 	}
 }
 
+// VaultEnabled reports whether the default redactor has a vault attached.
+func VaultEnabled() bool { return defaultRedactor.vault != nil }
+
 // assign returns the bare token (e.g. "EMAIL_1") for a value. With a vault,
 // numbering is gateway-global and the original is recorded; otherwise it is
 // per-field and ephemeral.
