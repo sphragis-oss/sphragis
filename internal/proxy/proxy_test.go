@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sphragis-oss/sphragis/internal/audit"
+	"github.com/sphragis-oss/sphragis/internal/metrics"
 	"github.com/sphragis-oss/sphragis/internal/proxy"
 )
 
@@ -409,5 +410,42 @@ func TestProxyStreamsSSE(t *testing.T) {
 	}
 	if !rec.Flushed {
 		t.Fatal("expected the stream to be flushed")
+	}
+}
+
+func TestAgentPrefixStripsAndCountsTokens(t *testing.T) {
+	var gotPath string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"usage":{"input_tokens":11,"output_tokens":22,"cache_read_input_tokens":33}}`))
+	}))
+	defer upstream.Close()
+
+	logPath := filepath.Join(t.TempDir(), "a.jsonl")
+	lg, _ := audit.Open(logPath)
+	defer lg.Close()
+	h := proxy.New(upstream.URL, upstream.URL, "", "", lg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	req := httptest.NewRequest(http.MethodPost, "/agent/coder/v1/messages", strings.NewReader(`{"model":"claude-sonnet-5"}`))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d", rec.Code)
+	}
+	if gotPath != "/v1/messages" {
+		t.Fatalf("upstream path = %q, want /v1/messages", gotPath)
+	}
+
+	mrec := httptest.NewRecorder()
+	metrics.Handler().ServeHTTP(mrec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	for _, want := range []string{
+		`sphragis_tokens_total{agent="coder",model="claude-sonnet-5",direction="input"} 11`,
+		`sphragis_tokens_total{agent="coder",model="claude-sonnet-5",direction="output"} 22`,
+		`sphragis_tokens_total{agent="coder",model="claude-sonnet-5",direction="cache_read"} 33`,
+	} {
+		if !strings.Contains(mrec.Body.String(), want) {
+			t.Errorf("metrics missing %q", want)
+		}
 	}
 }

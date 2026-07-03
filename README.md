@@ -347,8 +347,16 @@ key set, no originals are ever stored.
 ## Metrics
 
 `sphragis serve` exposes Prometheus metrics at `/metrics` (redaction counts by
-kind and direction, requests by route, upstream latency, audit-append failures).
-It is plain-text exposition with no external dependency.
+kind and direction, requests by route, upstream latency, audit-append failures,
+token usage). It is plain-text exposition with no external dependency.
+
+Callers can attribute token usage by prefixing the base URL with
+`/agent/<name>` (e.g. `ANTHROPIC_BASE_URL=http://127.0.0.1:8787/agent/coder`).
+The gateway strips the prefix before routing and reports provider-counted
+tokens as `sphragis_tokens_total{agent,model,direction}` with directions
+`input`, `output`, `cache_creation`, and `cache_read`. This is how
+[choragos](https://github.com/sphragis-oss/choragos) shows per-role token
+and cost figures.
 
 ## Web UI
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Token usage metrics: `sphragis_tokens_total{agent,model,direction}` counts
+  provider-reported tokens (input, output, cache_creation, cache_read) for
+  Anthropic, OpenAI, and Gemini responses, streaming and non-streaming.
+- Caller attribution: an `/agent/<name>/...` base-URL prefix is stripped
+  before routing and becomes the `agent` metric label.
+
 ## [0.7.0] - 2026-06-28
 
 ### Added
