@@ -96,6 +96,7 @@ func serve(logger *slog.Logger) error {
 	mux.Handle("/v1/", px)     // OpenAI, Anthropic, Ollama (OpenAI-compatible)
 	mux.Handle("/v1beta/", px) // Google Gemini
 	mux.Handle("/openai/", px) // Azure OpenAI
+	mux.Handle("/agent/", px)  // /agent/<name>/... attributes token metrics to a caller
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	mux.Handle("/metrics", metrics.Handler())
 	// preview redactor has no vault, so the playground never mutates state

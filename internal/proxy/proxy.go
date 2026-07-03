@@ -109,6 +109,10 @@ func copyHeaders(dst, src http.Header) {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// /agent/<name>/... attributes the call to a named caller (e.g. a choragos role)
+	agent, path := splitAgent(r.URL.Path)
+	r.URL.Path = path
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "read error", http.StatusBadRequest)
@@ -179,11 +183,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 	metrics.ObserveResponse(r.URL.Path, resp.StatusCode, time.Since(start))
-	h.writeResponse(w, resp, r.URL.Path)
+	h.writeResponse(w, resp, r.URL.Path, agent, model)
 }
 
 // writeResponse redacts the upstream response (SSE or JSON) before relaying it.
-func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path string) {
+func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path, agent, model string) {
 	ct := resp.Header.Get("Content-Type")
 	copyResponseHeaders(w.Header(), resp.Header)
 
@@ -194,11 +198,13 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 		if fl, ok := w.(http.Flusher); ok {
 			flush = fl.Flush
 		}
+		tally := &tokenTally{}
 		sr := redact.NewStreamRedactor(path)
 		sr.SetReveal(h.AutoReveal)
-		sr.Process(w, flush, resp.Body)
+		sr.Process(newUsageScanner(w, tally), flush, resp.Body)
 		redact.FlushVault()
 		metrics.ObserveRedactions("response", sr.Counts())
+		tally.observe(agent, model)
 		return
 	}
 
@@ -208,6 +214,9 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
+		tally := &tokenTally{}
+		tally.absorbJSON(body)
+		tally.observe(agent, model)
 		if red, counts, rerr := redact.RedactResponse(path, body); rerr == nil {
 			body = red
 			redact.FlushVault()

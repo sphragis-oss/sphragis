@@ -23,9 +23,10 @@ var (
 	auditFails = newCounter("sphragis_audit_append_failures_total", "Audit-log append failures (fail-closed events).")
 	upErrors   = newCounter("sphragis_upstream_errors_total", "Upstream request failures.")
 	duration   = newHistogram("sphragis_upstream_request_duration_seconds", "Upstream round-trip latency in seconds.", durationBuckets, "path")
+	tokens     = newCounter("sphragis_tokens_total", "Model tokens as reported by the provider, by agent, model, and direction.", "agent", "model", "direction")
 )
 
-var collectors = []collector{requests, responses, redactions, auditFails, upErrors, duration}
+var collectors = []collector{requests, responses, redactions, auditFails, upErrors, duration, tokens}
 
 // ObserveRequest counts one received request for a route.
 func ObserveRequest(path, upstream string) { requests.add(1, NormalizePath(path), upstream) }
@@ -42,6 +43,14 @@ func ObserveRedactions(direction string, counts map[string]int) {
 	for kind, n := range counts {
 		redactions.add(float64(n), kind, direction)
 	}
+}
+
+// ObserveTokens adds provider-reported token counts; model is truncated to bound cardinality.
+func ObserveTokens(agent, model, direction string, n int64) {
+	if len(model) > 64 {
+		model = model[:64]
+	}
+	tokens.add(float64(n), agent, model, direction)
 }
 
 // AuditAppendFailed counts one fail-closed audit write.
