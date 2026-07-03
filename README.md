@@ -17,8 +17,9 @@ call. Self-hosted, no SaaS in the data path. We never see your prompts.
 [![Go](https://img.shields.io/badge/go-1.26-00ADD8.svg)](go.mod)
 [![CI](https://github.com/sphragis-oss/sphragis/actions/workflows/ci.yml/badge.svg)](https://github.com/sphragis-oss/sphragis/actions/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-early-orange.svg)](#project-status)
+[![Medium](https://img.shields.io/badge/blog-Medium-black.svg)](https://medium.com/@nonickedgr/your-llm-prompts-are-leaving-the-building-sphragis-makes-sure-your-customers-data-doesn-t-1ad26cce0ec4)
 
-[**sphragis.eu**](https://sphragis.eu) &nbsp;&bull;&nbsp; [Quick start](#quick-start) &nbsp;&bull;&nbsp; [Install](#install) &nbsp;&bull;&nbsp; [Contributing](CONTRIBUTING.md) &nbsp;&bull;&nbsp; [Changelog](CHANGELOG.md)
+[**sphragis.eu**](https://sphragis.eu) &nbsp;&bull;&nbsp; [Read the story](https://medium.com/@nonickedgr/your-llm-prompts-are-leaving-the-building-sphragis-makes-sure-your-customers-data-doesn-t-1ad26cce0ec4) &nbsp;&bull;&nbsp; [Quick start](#quick-start) &nbsp;&bull;&nbsp; [Install](#install) &nbsp;&bull;&nbsp; [Contributing](CONTRIBUTING.md) &nbsp;&bull;&nbsp; [Changelog](CHANGELOG.md)
 
 </div>
 
