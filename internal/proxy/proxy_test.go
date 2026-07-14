@@ -3,6 +3,7 @@
 package proxy_test
 
 import (
+	"bytes"
 	"io"
 	"log/slog"
 	"net/http"
@@ -410,6 +411,72 @@ func TestProxyStreamsSSE(t *testing.T) {
 	}
 	if !rec.Flushed {
 		t.Fatal("expected the stream to be flushed")
+	}
+}
+
+func TestProxyLogsUpstreamErrorBody(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/messages" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"type":"error","error":{"type":"invalid_request_error","message":"boom"}}`))
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("plain not found"))
+	}))
+	defer upstream.Close()
+
+	lg, _ := audit.Open(filepath.Join(t.TempDir(), "a.jsonl"))
+	defer lg.Close()
+	var logs bytes.Buffer
+	h := proxy.New(upstream.URL, upstream.URL, "", "", lg, slog.New(slog.NewTextHandler(&logs, nil)))
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"claude","messages":[]}`)))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "invalid_request_error") {
+		t.Fatalf("error body not relayed to client: %s", rec.Body.String())
+	}
+	if !strings.Contains(logs.String(), "invalid_request_error") || !strings.Contains(logs.String(), "status=400") {
+		t.Fatalf("upstream JSON error body not logged: %s", logs.String())
+	}
+
+	logs.Reset()
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt"}`)))
+	if rec.Code != http.StatusNotFound || rec.Body.String() != "plain not found" {
+		t.Fatalf("non-JSON error not relayed: %d %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(logs.String(), "plain not found") || !strings.Contains(logs.String(), "status=404") {
+		t.Fatalf("upstream non-JSON error body not logged: %s", logs.String())
+	}
+}
+
+func TestProxyLogsUnrecognizedPathRouting(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer upstream.Close()
+
+	lg, _ := audit.Open(filepath.Join(t.TempDir(), "a.jsonl"))
+	defer lg.Close()
+	var logs bytes.Buffer
+	h := proxy.New(upstream.URL, upstream.URL, "", "", lg, slog.New(slog.NewTextHandler(&logs, nil)))
+
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/v1/organizations/me", nil))
+	if !strings.Contains(logs.String(), "unrecognized path") {
+		t.Fatalf("fallback routing not logged: %s", logs.String())
+	}
+
+	logs.Reset()
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"claude"}`)))
+	if strings.Contains(logs.String(), "unrecognized path") {
+		t.Fatalf("known path wrongly logged as unrecognized: %s", logs.String())
 	}
 }
 
