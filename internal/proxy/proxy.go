@@ -82,6 +82,11 @@ func (h *Handler) route(r *http.Request, model string) (upstream, tag string) {
 	}
 }
 
+// recognizedPath reports a path the proxy has explicit routing and redaction rules for.
+func recognizedPath(path string) bool {
+	return isGeminiPath(path) || strings.HasPrefix(path, "/openai/") || metrics.NormalizePath(path) != "other"
+}
+
 // isGeminiPath reports a Google Generative Language API call.
 func isGeminiPath(path string) bool {
 	return strings.HasPrefix(path, "/v1beta/") ||
@@ -156,6 +161,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	upstream, tag := h.route(r, model)
+	if !recognizedPath(r.URL.Path) {
+		h.Logger.Warn("unrecognized path; routing by fallback", "path", r.URL.Path, "upstream", tag)
+	}
 	metrics.ObserveRequest(r.URL.Path, tag)
 	// RequestURI keeps the query string (Gemini ?key=, Azure ?api-version=).
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstream+r.URL.RequestURI(), bytes.NewReader(redacted))
@@ -214,6 +222,9 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
+		if resp.StatusCode >= 400 {
+			h.logUpstreamError(path, resp.StatusCode, body)
+		}
 		tally := &tokenTally{}
 		tally.absorbJSON(body)
 		tally.observe(agent, model)
@@ -233,8 +244,24 @@ func (h *Handler) writeResponse(w http.ResponseWriter, resp *http.Response, path
 		return
 	}
 
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		h.logUpstreamError(path, resp.StatusCode, body)
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+		return
+	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// logUpstreamError surfaces the error body that clients hide behind generic messages.
+func (h *Handler) logUpstreamError(path string, status int, body []byte) {
+	const maxLog = 2048
+	if len(body) > maxLog {
+		body = body[:maxLog]
+	}
+	h.Logger.Warn("upstream error response", "path", path, "status", status, "body", string(body))
 }
 
 // kindCounts converts redaction counts to string-keyed counts for metrics.
