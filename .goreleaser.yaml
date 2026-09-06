@@ -114,12 +114,13 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://sphragis.eu
     description: "EU AI Act compliance gateway: local PII redaction and a tamper-evident audit log"
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/sphragis"]
-          end
+    # custom_block, not hooks: goreleaser still emits the deprecated `postflight` stanza (goreleaser#6870)
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/sphragis"]
+        end
+      end
 
 release:
   github:
