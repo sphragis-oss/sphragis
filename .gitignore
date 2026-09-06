@@ -4,3 +4,4 @@
 *.ots
 *.out
 .env
+.DS_Store
