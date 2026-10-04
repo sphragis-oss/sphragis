@@ -28,7 +28,8 @@ call. Self-hosted, no SaaS in the data path. We never see your prompts.
 
 > **Status: early.** The proxy, PII/secret redaction of both requests and model
 > output, the hash-chained audit log, verification, and OpenTimestamps anchoring
-> all work and are tested. A bundled ML entity-recognition service is planned.
+> all work and are tested. An optional local ML NER service for names and
+> addresses ships in [`ner/pii-tracer`](ner/pii-tracer/README.md).
 
 ## Why
 
@@ -56,9 +57,11 @@ flowchart LR
         A["App / SDK / agent<br/>Claude Code · Anthropic SDK · OpenAI / Codex"]
         G{{"Sphragis gateway"}}
         R["Redact PII + secrets<br/>→ EMAIL_1, CARD_2, …"]
+        N["NER sidecar · optional<br/>PII-Tracer, local model"]
         L[("Audit log<br/>hash-chained .jsonl")]
         A -->|request| G
         G --> R
+        R <-.->|"names · addresses<br/>fails open"| N
         R -->|"append · fails closed"| L
         G -->|response| A
     end
@@ -75,6 +78,8 @@ flowchart LR
 
 1. The gateway parses the request body for its wire format (OpenAI or Anthropic).
 2. PII and secrets are detected and replaced with stable `[KIND_n]` tokens.
+   Optionally, a local NER service adds names and addresses that no regex can
+   match.
 3. A record is appended to an append-only log: `sha256(redacted payload)`, the
    previous record's hash, a sequence number and timestamp, all chained.
 4. The redacted request is forwarded upstream. **If the audit write fails, the
@@ -201,6 +206,14 @@ Point each client at the gateway:
   `SPHRAGIS_UPSTREAM_BASE_URL` at `http://localhost:11434` and the client at the
   gateway's `/v1`.
 
+The model sees `[NAME_1]`, not the name, and may ask for the "real" value. Tell
+it what the tokens are, for example with Claude Code:
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:8787 claude --append-system-prompt \
+  "Personal data is replaced by stable tokens such as [NAME_1]; treat each token as the real value and use it verbatim."
+```
+
 Both string and structured bodies are handled, including Anthropic `document`
 blocks, `tool_use` inputs and `tool_result` content. Signed `thinking` blocks are
 left intact so signatures stay valid. Other paths are proxied through unchanged,
@@ -258,6 +271,8 @@ precision-biased: a name only matches when followed by a capitalized surname, so
 everyday capitalized words are left alone. It is off by default. For the highest
 accuracy, or for health terms, use the external NER service below instead.
 
+### External NER (opt-in)
+
 Arbitrary names, addresses and health terms cannot be matched by regex. Point
 `SPHRAGIS_NER_URL` at an NER service (the bundled
 [PII-Tracer service](ner/pii-tracer/README.md), or a Microsoft Presidio sidecar)
@@ -266,6 +281,19 @@ that accepts `{"text": "..."}` and returns
 returned spans. NER is best-effort and **fails open**, so an NER outage never
 blocks regex redaction. Without it, feed known names and codenames through the
 custom-terms file.
+
+The bundled service runs Perplexity's open
+[PII-Tracer](https://huggingface.co/perplexity-ai/PII-Tracer) model on your
+machine (Apple `mps` or CPU), so the text it inspects never leaves it:
+
+```bash
+uv run --script ner/pii-tracer/server.py      # 127.0.0.1:8788, first start downloads the model
+SPHRAGIS_NER_URL=http://127.0.0.1:8788 sphragis serve
+```
+
+English is reliable, other languages are experimental, and each text field has
+a 5 s budget. See the [service README](ner/pii-tracer/README.md) for measured
+limits.
 
 ## Anchoring (optional)
 
