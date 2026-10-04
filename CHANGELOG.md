@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ner/pii-tracer`: local NER service for `SPHRAGIS_NER_URL` backed by
   Perplexity's PII-Tracer, vendored and pinned, loaded without
-  `trust_remote_code`.
+  `trust_remote_code`. Results are cached in memory so a resent conversation
+  only pays for new text, and `server.py` is directly executable via `uv`.
 
 ### Fixed
 
