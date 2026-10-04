@@ -1,8 +1,10 @@
+#!/usr/bin/env -S uv run --quiet --script
 # /// script
 # requires-python = ">=3.12"
 # dependencies = ["torch", "transformers>=5.2"]
 # ///
 # SPDX-License-Identifier: Apache-2.0
+import functools
 import json
 import logging
 import os
@@ -57,6 +59,7 @@ class Detector:
         self.model = PiiMaskingModel.from_pretrained(MODEL, revision=REVISION).to(device).eval()
         log.info("loaded %s@%s on %s", MODEL, REVISION[:8], device)
 
+    @functools.lru_cache(maxsize=4096)  # clients resend the whole conversation every turn
     def entities(self, text: str) -> list[dict]:
         out, seen = [], set()
         for part in chunks(text):

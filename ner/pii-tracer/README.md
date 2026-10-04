@@ -47,6 +47,10 @@ review it, and bump `REVISION` in `server.py` together with the vendored copy.
 - Sphragis gives NER 5 s per text field and fails open, so a slow call means
   regex-only redaction for that field. Input is chunked at 6000 characters.
 - NER does not run on streamed request bodies (see `internal/redact/stream.go`).
+- Results are cached in memory (4096 texts). Sphragis redacts every field of
+  every request, and agents resend the whole conversation each turn, so only
+  new text pays the model cost. A field that timed out is still computed and
+  cached, so it is redacted from the next request on.
 - Measured on Apple M-series `mps`: ~0.13 ms per character, so fields over
   ~37k characters exceed the 5 s budget. CPU is ~50x slower.
 - English is reliable. Greek works on full sentences but is experimental: short
