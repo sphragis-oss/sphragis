@@ -6,3 +6,7 @@ This product includes software developed by the Sphragis project
 
 Licensed under the Apache License, Version 2.0. You may obtain a copy of
 the License at http://www.apache.org/licenses/LICENSE-2.0.
+
+This product includes ner/pii-tracer/modeling_pii_masking.py from PII-Tracer
+(https://huggingface.co/perplexity-ai/PII-Tracer), Copyright (c) 2026
+Perplexity AI, Inc., licensed under the MIT License (ner/pii-tracer/LICENSE).

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ner/pii-tracer`: local NER service for `SPHRAGIS_NER_URL` backed by
+  Perplexity's PII-Tracer, vendored and pinned, loaded without
+  `trust_remote_code`.
+
+### Fixed
+
+- External NER is queried only on the text between existing tokens, so an
+  entity span that ran into a token no longer leaves the whole name unredacted.
+
 ## [0.8.0] - 2026-07-03
 
 ### Added
