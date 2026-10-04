@@ -44,9 +44,10 @@ type StreamRedactor struct {
 	counts map[Kind]int
 	seen   map[Kind]map[string]int
 
-	carry     string
-	flushTmpl func(text string) (name string, data []byte)
-	reveal    bool
+	carry        string
+	flushTmpl    func(text string) (name string, data []byte)
+	reveal       bool
+	pendingEvent string // event: line held until its data line, so a flush never lands between them
 }
 
 // SetReveal makes emitted text re-identify [KIND_n] tokens from the vault (auto-reveal mode).
@@ -95,46 +96,57 @@ func (s *StreamRedactor) Process(w io.Writer, flush func(), body io.Reader) {
 			break
 		}
 	}
-	if s.carry != "" {
+	if s.carry != "" || s.pendingEvent != "" {
 		s.flushCarry(w)
+		s.emit(w, "")
 		flush()
 	}
 }
 
+// emit writes any held event: line followed by text.
+func (s *StreamRedactor) emit(w io.Writer, text string) {
+	io.WriteString(w, s.pendingEvent+text)
+	s.pendingEvent = ""
+}
+
 func (s *StreamRedactor) handleLine(w io.Writer, line string) {
 	trimmed := strings.TrimRight(line, "\r\n")
+	if strings.HasPrefix(trimmed, "event:") {
+		s.pendingEvent += line
+		return
+	}
 	if !strings.HasPrefix(trimmed, "data:") {
-		io.WriteString(w, line)
+		s.emit(w, line)
 		return
 	}
 	payload := strings.TrimSpace(trimmed[len("data:"):])
 	if payload == "" {
-		io.WriteString(w, line)
+		s.emit(w, line)
 		return
 	}
 	if payload == "[DONE]" {
 		s.flushCarry(w)
-		io.WriteString(w, line)
+		s.emit(w, line)
 		return
 	}
 	var obj map[string]any
 	if json.Unmarshal([]byte(payload), &obj) != nil {
-		io.WriteString(w, line)
+		s.emit(w, line)
 		return
 	}
 	if s.isFlushTrigger(obj) {
 		s.flushCarry(w)
 	}
 	if !s.transform(obj) {
-		io.WriteString(w, line)
+		s.emit(w, line)
 		return
 	}
 	nb, err := json.Marshal(obj)
 	if err != nil {
-		io.WriteString(w, line)
+		s.emit(w, line)
 		return
 	}
-	io.WriteString(w, "data: "+string(nb)+"\n")
+	s.emit(w, "data: "+string(nb)+"\n")
 }
 
 // transform redacts the text in one event in place; returns whether it changed obj.

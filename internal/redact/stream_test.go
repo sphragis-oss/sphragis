@@ -30,6 +30,45 @@ func TestStreamAnthropicSplitAcrossDeltas(t *testing.T) {
 	}
 }
 
+func TestStreamFlushKeepsEventNames(t *testing.T) {
+	in := "event: content_block_start\n" +
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}` + "\n\n" +
+		"event: content_block_delta\n" +
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"received"}}` + "\n\n" +
+		"event: content_block_stop\n" +
+		`data: {"type":"content_block_stop","index":0}` + "\n\n" +
+		"event: message_stop\n" +
+		`data: {"type":"message_stop"}` + "\n\n"
+	out := run("/v1/messages", in)
+	// parse like an SSE client: the last event: line names the event, blank line dispatches it
+	var types []string
+	for _, block := range strings.Split(out, "\n\n") {
+		var name, data string
+		for _, l := range strings.Split(block, "\n") {
+			if v, ok := strings.CutPrefix(l, "event: "); ok {
+				name = v
+			} else if v, ok := strings.CutPrefix(l, "data: "); ok {
+				data = v
+			}
+		}
+		if data == "" {
+			continue
+		}
+		if !strings.Contains(data, `"type":"`+name+`"`) {
+			t.Fatalf("event %q carries mismatched data %s\nstream:\n%s", name, data, out)
+		}
+		types = append(types, name)
+	}
+	// held text arrives as an empty delta plus a flushed delta before the stop
+	want := "content_block_start content_block_delta content_block_delta content_block_stop message_stop"
+	if got := strings.Join(types, " "); got != want {
+		t.Fatalf("event order: got %q, want %q\nstream:\n%s", got, want, out)
+	}
+	if !strings.Contains(out, `"text":"received"`) {
+		t.Fatalf("held text not flushed: %s", out)
+	}
+}
+
 func TestStreamOpenAIChatSplitAcrossDeltas(t *testing.T) {
 	in := `data: {"choices":[{"index":0,"delta":{"content":"mail jo"}}]}` + "\n\n" +
 		`data: {"choices":[{"index":0,"delta":{"content":"hn@x.com"}}]}` + "\n\n" +
