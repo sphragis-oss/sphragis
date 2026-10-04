@@ -47,29 +47,45 @@ func nerKind(t string) Kind {
 // redact calls the external NER service and tokenizes returned entities; it is
 // best-effort and fails open so an NER outage never blocks regex redaction.
 func (n *nerClient) redact(r *Redactor, s string, counts map[Kind]int, seen map[Kind]map[string]int) string {
-	body, _ := json.Marshal(map[string]string{"text": s})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	var entities []nerEntity
+	// send only the text between existing tokens so no returned span can straddle one
+	for _, seg := range nerTokenRe.Split(s, -1) {
+		if strings.TrimSpace(seg) == "" {
+			continue
+		}
+		found, ok := n.detect(ctx, seg)
+		if !ok {
+			break // keep what earlier segments found
+		}
+		entities = append(entities, found...)
+	}
+	return replaceEntities(r, s, entities, counts, seen)
+}
+
+func (n *nerClient) detect(ctx context.Context, text string) ([]nerEntity, bool) {
+	body, _ := json.Marshal(map[string]string{"text": text})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, n.url, bytes.NewReader(body))
 	if err != nil {
-		return s
+		return nil, false
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := n.http.Do(req)
 	if err != nil {
-		return s
+		return nil, false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return s
+		return nil, false
 	}
 	var out struct {
 		Entities []nerEntity `json:"entities"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return s
+		return nil, false
 	}
-	return replaceEntities(r, s, out.Entities, counts, seen)
+	return out.Entities, true
 }
 
 // replaceEntities tokenizes NER entities longest-first, only inside plain-text spans, leaving existing tokens intact.

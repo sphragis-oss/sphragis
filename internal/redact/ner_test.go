@@ -59,6 +59,27 @@ func TestNEROverlappingEntitiesAndTokenSafety(t *testing.T) {
 	}
 }
 
+func TestNEREntityNeverStraddlesToken(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct{ Text string }
+		json.NewDecoder(r.Body).Decode(&req)
+		// mimic a model whose span runs into an existing token when it sees one
+		span := "Maria Papadopoulou"
+		if strings.Contains(req.Text, "[EMAIL_") {
+			span = "Maria Papadopoulou <[EMAIL_1"
+		}
+		json.NewEncoder(w).Encode(map[string]any{"entities": []map[string]string{{"type": "PERSON", "text": span}}})
+	}))
+	defer srv.Close()
+
+	r := New(nil)
+	r.SetNER(srv.URL)
+	res := r.Redact("Maria Papadopoulou <a@b.com> signed")
+	if strings.Contains(res.Text, "Papadopoulou") || !strings.Contains(res.Text, "[EMAIL_1]") {
+		t.Fatalf("want name and email tokenized, got %q", res.Text)
+	}
+}
+
 func TestNERFailOpen(t *testing.T) {
 	r := New(nil)
 	r.SetNER("http://127.0.0.1:1")

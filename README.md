@@ -259,7 +259,8 @@ everyday capitalized words are left alone. It is off by default. For the highest
 accuracy, or for health terms, use the external NER service below instead.
 
 Arbitrary names, addresses and health terms cannot be matched by regex. Point
-`SPHRAGIS_NER_URL` at an NER service (for example a Microsoft Presidio sidecar)
+`SPHRAGIS_NER_URL` at an NER service (the bundled
+[PII-Tracer service](ner/pii-tracer/README.md), or a Microsoft Presidio sidecar)
 that accepts `{"text": "..."}` and returns
 `{"entities": [{"type": "PERSON", "text": "..."}]}`. The gateway tokenizes the
 returned spans. NER is best-effort and **fails open**, so an NER outage never
