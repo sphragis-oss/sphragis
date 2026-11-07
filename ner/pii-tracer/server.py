@@ -55,7 +55,7 @@ def chunks(text: str):
 class Detector:
     def __init__(self):
         device = os.environ.get("PII_TRACER_DEVICE") or ("mps" if torch.backends.mps.is_available() else "cpu")
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION, trust_remote_code=False)
         self.model = PiiMaskingModel.from_pretrained(MODEL, revision=REVISION).to(device).eval()
         log.info("loaded %s@%s on %s", MODEL, REVISION[:8], device)
 
