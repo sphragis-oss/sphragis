@@ -53,6 +53,13 @@ review it, and bump `REVISION` in `server.py` together with the vendored copy.
   cached, so it is redacted from the next request on.
 - Measured on Apple M-series `mps`: ~0.13 ms per character, so fields over
   ~37k characters exceed the 5 s budget. CPU is ~50x slower.
+- `torch.compile` is not used. Measured on `mps` with torch 2.15.0 (Inductor
+  Metal codegen, `dynamic=True`, one graph, no recompiles across 44 to 6000
+  character inputs): spans identical to eager, steady state 1.2x to 1.3x faster
+  (a 6000 character chunk drops from ~1.03 s to ~0.86 s), but the first call
+  pays ~20 s of compilation and the result is a compiled-code cache on disk.
+  Both paths sit well inside the 5 s budget, so the gain does not justify the
+  warm-up and the extra moving part. Revisit if latency becomes a problem.
 - English is reliable. Greek works on full sentences but is experimental: short
   inputs can produce wrong span boundaries (same output on `mps` and CPU, so it
   is the model, not the device).
